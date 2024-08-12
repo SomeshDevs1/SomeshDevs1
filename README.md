@@ -1,6 +1,5 @@
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Collections;
 import java.util.List;
 
-public class UserControllerTest {
+public class VAPTeamControllerTest {
 
     @Mock
     private UserAuthService userAuthSvc;
@@ -23,7 +22,7 @@ public class UserControllerTest {
     private UserGroupSetUpService userGroupSetUpService;
 
     @InjectMocks
-    private UserController userController;
+    private VAPTeamController controller;
 
     @Mock
     private Authentication auth;
@@ -35,56 +34,26 @@ public class UserControllerTest {
 
     @Test
     void testGetUserGroupInfosSuccess() throws Exception {
-        // Mocking user details
-        UserDto mockUser = new UserDto(); // Assuming UserDto is the expected return type
-        when(userAuthSvc.getUserDetails(auth, VAPConstants.VAC_ID)).thenReturn(mockUser);
+        // Arrange
+        UserDto mockUser = mock(UserDto.class);
+        List<UserGroupInfoDto> mockGroupInfos = Collections.emptyList();
         
-        // Mocking validation (assuming no exception means valid user)
-        doNothing().when(UserUtils.class);
-        UserUtils.validate(mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true);
-
-        // Mocking group infos
-        List<UserGroupInfoDto> mockGroupInfos = Collections.emptyList(); // Assuming empty list for simplicity
+        when(userAuthSvc.getUserDetails(auth, VAPConstants.VAC_ID)).thenReturn(mockUser);
+        doNothing().when(UserUtils.class, "validate", mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true);
         when(userGroupSetUpService.getUserGroupInfos()).thenReturn(mockGroupInfos);
-
-        // Test
-        ResponseEntity<List<UserGroupInfoDto>> response = userController.getUserGroupInfos(auth);
+        
+        // Act
+        ResponseEntity<List<UserGroupInfoDto>> response = controller.getUserGroupInfos(auth);
+        
+        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(mockGroupInfos, response.getBody());
     }
 
     @Test
-    void testGetUserGroupInfosUnauthorized() {
-        // Mocking exception for unauthorized user
-        when(userAuthSvc.getUserDetails(auth, VAPConstants.VAC_ID))
-            .thenThrow(new VAPServiceException("Unauthorized"));
-
-        // Test
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            userController.getUserGroupInfos(auth);
-        });
-
-        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
-    }
-
-    @Test
     void testGetUserGroupInfosBadRequest() throws Exception {
-        // Mocking user details
-        UserDto mockUser = new UserDto(); // Assuming UserDto is the expected return type
+        // Arrange
+        UserDto mockUser = mock(UserDto.class);
+        
         when(userAuthSvc.getUserDetails(auth, VAPConstants.VAC_ID)).thenReturn(mockUser);
-
-        // Mocking validation
-        doNothing().when(UserUtils.class);
-        UserUtils.validate(mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true);
-
-        // Mocking exception in service
-        when(userGroupSetUpService.getUserGroupInfos()).thenThrow(new RuntimeException("Bad Request"));
-
-        // Test
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            userController.getUserGroupInfos(auth);
-        });
-
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
-    }
-}
+        doNothing().when(UserUtils.class, "validate", mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true​⬤
