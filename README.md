@@ -56,4 +56,14 @@ public class VAPTeamControllerTest {
         UserDto mockUser = mock(UserDto.class);
         
         when(userAuthSvc.getUserDetails(auth, VAPConstants.VAC_ID)).thenReturn(mockUser);
-        doNothing().when(UserUtils.class, "validate", mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true​⬤
+        doNothing().when(UserUtils.class, "validate", mockUser, VAPConstants.VAC_MODULE_NAME, VAPConstants.ADMIN_ROLE, true);
+        when(userGroupSetUpService.getUserGroupInfos()).thenThrow(new RuntimeException("Bad Request"));
+        
+        // Act & Assert
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            controller.getUserGroupInfos(auth);
+        });
+        
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+    }
+}
