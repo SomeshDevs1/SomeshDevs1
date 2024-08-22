@@ -1,56 +1,20 @@
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.test.annotation.Rollback;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.List;
-
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class AssocFundFundGroupRepositoryTest {
-
-    @Autowired
-    private AssocFundFundGroupRepository assocFundFundGroupRepository;
-
-    @Test
-    @Rollback(false)
-    public void testFindByFundGroup() {
-        // Assume you have a fund group object already created in your database
-        FundGroup fundGroup = new FundGroup();  // Replace with actual FundGroup setup
-        fundGroup.setId(1L);  // Set an ID that exists in your test database
-
-        List<AssocFundFundGroup> result = assocFundFundGroupRepository.findByFundGroup(fundGroup);
-        
-        assertNotNull(result);  // Check that the result is not null
-        assertEquals(1, result.size());  // Check if the expected number of results is returned
-    }
-}
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
-import java.util.ArrayList;
-import java.util.List;
-
-@SpringBootTest
-public class AssocFundFundGroupRepositoryTest {
+public class VAPTeamControllerTest {
 
     @Mock
-    private AssocFundFundGroupRepository assocFundFundGroupRepository;
+    private GroupSetupService groupSetupService;
 
     @InjectMocks
-    private YourServiceClass service;  // Replace with your actual service class that uses the repository
+    private VAPTeamController vapTeamController;
 
     @BeforeEach
     public void setUp() {
@@ -58,25 +22,18 @@ public class AssocFundFundGroupRepositoryTest {
     }
 
     @Test
-    public void testFindByFundGroup() {
-        // Mock the FundGroup and AssocFundFundGroup objects
-        FundGroup fundGroup = new FundGroup();
-        fundGroup.setId(1L);  // Set the ID or other properties as needed
+    public void testGetSuggestionListAndSelectedUserGroups_whenExceptionThrown_shouldReturnBadRequest() {
+        // Arrange
+        String groupName = "someGroupName";
+        Exception ex = new Exception("some error message");
 
-        AssocFundFundGroup assocFundFundGroup = new AssocFundFundGroup();
-        assocFundFundGroup.setFundGroup(fundGroup);
+        // Mock the service to throw an exception
+        doThrow(ex).when(groupSetupService).getSuggestionListAndSelectedUserGroups(groupName);
 
-        List<AssocFundFundGroup> expectedList = new ArrayList<>();
-        expectedList.add(assocFundFundGroup);
+        // Act
+        ResponseEntity<?> response = vapTeamController.getSuggestionListAndSelectedUserGroups(groupName, null);
 
-        // Mock the behavior of the repository
-        when(assocFundFundGroupRepository.findByFundGroup(fundGroup)).thenReturn(expectedList);
-
-        // Call the service or repository method
-        List<AssocFundFundGroup> actualList = assocFundFundGroupRepository.findByFundGroup(fundGroup);
-
-        // Verify the result
-        assertEquals(1, actualList.size());
-        assertEquals(fundGroup, actualList.get(0).getFundGroup());
+        // Assert
+        assertEquals(ResponseEntity.badRequest().body("some error message"), response);
     }
 }
