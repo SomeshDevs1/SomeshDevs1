@@ -1,4 +1,4 @@
-import org.junit.jupiter.api.BeforeEach;
+we import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -44,5 +44,64 @@ public class RestTemplateConfigurationTest {
         
         assertNotNull(restTemplate);
         verify(mockOAuth2RestTemplate, times(1)).getAccessToken();
+    }
+}
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.boot.test.context.SpringBootTest;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
+
+@SpringBootTest
+public class RestTemplateConfigurationTest {
+
+    private Object api2ConfigurationInstance;
+
+    @Mock
+    private Object mockClientCredentialsProperties;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        MockitoAnnotations.openMocks(this);
+
+        // Use reflection to instantiate Api2Configuration
+        Class<?> outerClass = Class.forName("com.sgss.ast.fvs.vap.link.fund.api.config.RestTemplateConfiguration");
+        Class<?> innerClass = Class.forName("com.sgss.ast.fvs.vap.link.fund.api.config.RestTemplateConfiguration$Api2Configuration");
+
+        api2ConfigurationInstance = innerClass.getDeclaredConstructor(outerClass).newInstance(mock(outerClass));
+    }
+
+    @Test
+    void testClientCredentialsPropertiesBean() throws Exception {
+        // Access the method using reflection
+        Method api2PropsMethod = api2ConfigurationInstance.getClass().getDeclaredMethod("api2Props");
+        api2PropsMethod.setAccessible(true);
+
+        Object clientCredentialsProperties = api2PropsMethod.invoke(api2ConfigurationInstance);
+        assertNotNull(clientCredentialsProperties);
+
+        // If you need to interact with the ClientCredentialsProperties class
+        Field clientIdField = clientCredentialsProperties.getClass().getDeclaredField("clientId");
+        clientIdField.setAccessible(true);
+        clientIdField.set(clientCredentialsProperties, "test-client-id");
+
+        assertNotNull(clientIdField.get(clientCredentialsProperties));
+    }
+
+    @Test
+    void testVapGp3RestTemplateBean() throws Exception {
+        // Access the method using reflection
+        Method vapGp3RestTemplateMethod = api2ConfigurationInstance.getClass().getDeclaredMethod("vapGp3RestTemplate");
+        vapGp3RestTemplateMethod.setAccessible(true);
+
+        Object restTemplate = vapGp3RestTemplateMethod.invoke(api2ConfigurationInstance);
+        assertNotNull(restTemplate);
     }
 }
