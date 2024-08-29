@@ -43,8 +43,8 @@ public class TaskSetUpServiceImplTest {
 
         // Assert
         assertNotNull(result);
-        verify(taskConfigUtil).getUniqueTasks(singleFundCode.get(0), expectedDto, perimeter);
         verify(taskConfigUtil).getFundRulesForOneFund(singleFundCode.get(0), perimeter);
+        verify(taskConfigUtil).setFundTasks(singleFundCode.get(0), result, perimeter);
     }
 
     @Test
@@ -57,4 +57,49 @@ public class TaskSetUpServiceImplTest {
                 .thenReturn(expectedDto);
 
         // Act
-        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(multipleFundCodes,​⬤
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(multipleFundCodes, perimeter);
+
+        // Assert
+        assertNotNull(result);
+        verify(taskConfigUtil).getUniqueTasks(multipleFundCodes, expectedDto, perimeter);
+        verify(taskConfigUtil).getFundRules(multipleFundCodes, perimeter);
+    }
+
+    @Test
+    public void testGetTaskConfiguration_SingleFund_OtherPerimeter() {
+        // Arrange
+        String otherPerimeter = "OTHER";  // Non-MFS perimeter
+        TaskConfigurationDTO expectedDto = new TaskConfigurationDTO();
+        when(taskConfigUtil.getFundRulesForOneFund(singleFundCode.get(0), otherPerimeter))
+                .thenReturn(expectedDto);
+        when(taskConfigUtil.getUniqueTasks(singleFundCode.get(0), expectedDto, otherPerimeter))
+                .thenReturn(expectedDto);
+
+        // Act
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(singleFundCode, otherPerimeter);
+
+        // Assert
+        assertNotNull(result);
+        verify(taskConfigUtil).getFundRulesForOneFund(singleFundCode.get(0), otherPerimeter);
+        verify(taskConfigUtil).setFundTasks(singleFundCode.get(0), result, otherPerimeter);
+    }
+
+    @Test
+    public void testGetTaskConfiguration_MultipleFunds_OtherPerimeter() {
+        // Arrange
+        String otherPerimeter = "OTHER";  // Non-MFS perimeter
+        TaskConfigurationDTO expectedDto = new TaskConfigurationDTO();
+        when(taskConfigUtil.getFundRules(multipleFundCodes, otherPerimeter))
+                .thenReturn(expectedDto);
+        when(taskConfigUtil.getUniqueTasks(multipleFundCodes, expectedDto, otherPerimeter))
+                .thenReturn(expectedDto);
+
+        // Act
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(multipleFundCodes, otherPerimeter);
+
+        // Assert
+        assertNotNull(result);
+        verify(taskConfigUtil).getFundRules(multipleFundCodes, otherPerimeter);
+        verify(taskConfigUtil).setFundTasks(multipleFundCodes, result, otherPerimeter);
+    }
+}
