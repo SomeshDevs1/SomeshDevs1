@@ -1,32 +1,59 @@
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+public class TaskSetupServiceImplTest {
 
-public class RestTemplateConfigurationTest {
+    @Mock
+    private AutomationListRepository automationRepo;
 
-    private RestTemplateConfiguration.Api2Configuration api2Configuration;
+    @InjectMocks
+    private TaskSetupServiceImpl taskSetupService;
 
     @BeforeEach
-    void setUp() {
-        // Initialize the Api2Configuration object
-        api2Configuration = new RestTemplateConfiguration().new Api2Configuration();
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
     }
 
     @Test
-    void testApi2Props() {
-        // Call api2Props to ensure it returns a non-null object
-        RestTemplateConfiguration.ClientCredentialsProperties clientCredentialsProperties = api2Configuration.api2Props();
-        assertNotNull(clientCredentialsProperties, "ClientCredentialsProperties bean should not be null");
+    public void testGetAutomationList_Success() {
+        // Prepare mock data
+        AutomationList automation = new AutomationList();
+        automation.setAutomationName("TestAutomation");
+
+        List<AutomationList> automationList = new ArrayList<>();
+        automationList.add(automation);
+
+        // Mock the repository call
+        when(automationRepo.findAll()).thenReturn(automationList);
+
+        // Call the method under test
+        List<AutomationListDTO> result = taskSetupService.getAutomationList();
+
+        // Assert the result
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("TestAutomation", result.get(0).getAutomationName());
     }
 
     @Test
-    void testVapGp3RestTemplate() {
-        // Call vapGp3RestTemplate to ensure it returns a non-null RestTemplate object
-        OAuth2RestTemplate restTemplate = api2Configuration.vapGp3RestTemplate();
-        assertNotNull(restTemplate, "OAuth2RestTemplate bean should not be null");
+    public void testGetAutomationList_EmptyList() {
+        // Mock the repository call to return an empty list
+        when(automationRepo.findAll()).thenReturn(new ArrayList<>());
+
+        // Call the method under test and expect an exception
+        Exception exception = assertThrows(LinkServiceException.class, () -> {
+            taskSetupService.getAutomationList();
+        });
+
+        // Assert the exception message
+        assertEquals("There is error while getting the AutomationList", exception.getMessage());
     }
 }
