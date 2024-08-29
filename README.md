@@ -1,59 +1,60 @@
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class TaskSetupServiceImplTest {
+import java.util.Arrays;
+import java.util.List;
 
-    @Mock
-    private AutomationListRepository automationRepo;
+public class TaskSetUpServiceImplTest {
 
     @InjectMocks
-    private TaskSetupServiceImpl taskSetupService;
+    private TaskSetUpServiceImpl taskSetUpService;
+
+    @Mock
+    private TaskConfigUtil taskConfigUtil;
+
+    private List<Integer> singleFundCode;
+    private List<Integer> multipleFundCodes;
+    private String perimeter;
 
     @BeforeEach
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        MockitoAnnotations.openMocks(this);
+        singleFundCode = Arrays.asList(1);
+        multipleFundCodes = Arrays.asList(1, 2);
+        perimeter = "MFS";  // Example perimeter value, change according to your requirements
     }
 
     @Test
-    public void testGetAutomationList_Success() {
-        // Prepare mock data
-        AutomationList automation = new AutomationList();
-        automation.setAutomationName("TestAutomation");
+    public void testGetTaskConfiguration_SingleFund_MFS() {
+        // Arrange
+        TaskConfigurationDTO expectedDto = new TaskConfigurationDTO();
+        when(taskConfigUtil.getUniqueTasks(singleFundCode.get(0), expectedDto, perimeter))
+                .thenReturn(expectedDto);
+        when(taskConfigUtil.getFundRulesForOneFund(singleFundCode.get(0), perimeter))
+                .thenReturn(expectedDto);
 
-        List<AutomationList> automationList = new ArrayList<>();
-        automationList.add(automation);
+        // Act
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(singleFundCode, perimeter);
 
-        // Mock the repository call
-        when(automationRepo.findAll()).thenReturn(automationList);
-
-        // Call the method under test
-        List<AutomationListDTO> result = taskSetupService.getAutomationList();
-
-        // Assert the result
+        // Assert
         assertNotNull(result);
-        assertEquals(1, result.size());
-        assertEquals("TestAutomation", result.get(0).getAutomationName());
+        verify(taskConfigUtil).getUniqueTasks(singleFundCode.get(0), expectedDto, perimeter);
+        verify(taskConfigUtil).getFundRulesForOneFund(singleFundCode.get(0), perimeter);
     }
 
     @Test
-    public void testGetAutomationList_EmptyList() {
-        // Mock the repository call to return an empty list
-        when(automationRepo.findAll()).thenReturn(new ArrayList<>());
+    public void testGetTaskConfiguration_MultipleFunds_MFS() {
+        // Arrange
+        TaskConfigurationDTO expectedDto = new TaskConfigurationDTO();
+        when(taskConfigUtil.getUniqueTasks(multipleFundCodes, expectedDto, perimeter))
+                .thenReturn(expectedDto);
+        when(taskConfigUtil.getFundRules(multipleFundCodes, perimeter))
+                .thenReturn(expectedDto);
 
-        // Call the method under test and expect an exception
-        Exception exception = assertThrows(LinkServiceException.class, () -> {
-            taskSetupService.getAutomationList();
-        });
-
-        // Assert the exception message
-        assertEquals("There is error while getting the AutomationList", exception.getMessage());
-    }
-}
+        // Act
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(multipleFundCodes,​⬤
