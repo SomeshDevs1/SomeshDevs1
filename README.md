@@ -1,55 +1,87 @@
-@Test
-public void testGetTaskConfiguration_EmptyFundCodes() {
-    // Setup
-    List<Integer> fundCodes = Collections.emptyList();
-    String perimeter = "some_perimeter";
-    TaskConfigurationDTO taskConfig = new TaskConfigurationDTO();
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-    // Mock behavior (if needed)
-    when(mockTaskConfigUtil.getFundRules(any(), any())).thenReturn(...);
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-    // Execute
-    TaskConfigurationDTO result = yourService.getTaskConfiguration(fundCodes, perimeter);
+@ExtendWith(MockitoExtension.class)
+public class TaskSetUpServiceImplTest {
 
-    // Verify
-    assertNotNull(result);
-    // Additional assertions based on what the function should return in this case
+    @Mock
+    private TaskConfigUtil taskConfigUtil;
+
+    @InjectMocks
+    private TaskSetUpServiceImpl taskSetUpService;
+
+    private List<Integer> fundCodes;
+    private String perimeter;
+
+    @BeforeEach
+    void setUp() {
+        fundCodes = Arrays.asList(1, 2, 3);
+        perimeter = "WFS";
+    }
+
+    @Test
+    void testGetTaskConfiguration_withWFS_andOneFundCode() throws LinkServiceException {
+        // Setup
+        perimeter = "WFS";
+        fundCodes = Collections.singletonList(1);
+
+        // Mocking
+        when(taskConfigUtil.getUniqueTasksForOneFund(1, any(), anyString())).thenReturn(any());
+        when(taskConfigUtil.getFundRulesForOneFund(1, anyString())).thenReturn(any());
+
+        // Execute
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(fundCodes, perimeter);
+
+        // Assertions
+        assertNotNull(result);
+        verify(taskConfigUtil).getUniqueTasksForOneFund(1, result, perimeter);
+        verify(taskConfigUtil).getFundRulesForOneFund(1, perimeter);
+    }
+
+    @Test
+    void testGetTaskConfiguration_withWFS_andMultipleFundCodes() throws LinkServiceException {
+        // Setup
+        perimeter = "WFS";
+        fundCodes = Arrays.asList(1, 2, 3);
+
+        // Mocking
+        when(taskConfigUtil.getUniqueTasksForOneFund(1, any(), anyString())).thenReturn(any());
+        when(taskConfigUtil.getFundRulesForOneFund(1, anyString())).thenReturn(any());
+
+        // Execute
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(fundCodes, perimeter);
+
+        // Assertions
+        assertNotNull(result);
+        verify(taskConfigUtil, never()).getUniqueTasksForOneFund(anyInt(), any(), anyString());
+        verify(taskConfigUtil, never()).getFundRulesForOneFund(anyInt(), anyString());
+    }
+
+    @Test
+    void testGetTaskConfiguration_withOtherPerimeter() throws LinkServiceException {
+        // Setup
+        perimeter = "OTHER";
+
+        // Mocking
+        when(taskConfigUtil.getUniqueTasksForOneFund(anyInt(), any(), anyString())).thenReturn(any());
+        when(taskConfigUtil.getFundRulesForOneFund(anyInt(), anyString())).thenReturn(any());
+
+        // Execute
+        TaskConfigurationDTO result = taskSetUpService.getTaskConfiguration(fundCodes, perimeter);
+
+        // Assertions
+        assertNotNull(result);
+        verify(taskConfigUtil).getUniqueTasksForOneFund(anyInt(), any(), eq(perimeter));
+        verify(taskConfigUtil).getFundRulesForOneFund(anyInt(), eq(perimeter));
+    }
 }
-
-
-@Test
-public void testGetTaskConfiguration_SingleFundCode() {
-    // Setup
-    List<Integer> fundCodes = Collections.singletonList(123);
-    String perimeter = "LinkFundConstants.WFS";
-    TaskConfigurationDTO taskConfig = new TaskConfigurationDTO();
-
-    // Mock behavior (if needed)
-    when(mockTaskConfigUtil.getFundRules(any(), any())).thenReturn(...);
-
-    // Execute
-    TaskConfigurationDTO result = yourService.getTaskConfiguration(fundCodes, perimeter);
-
-    // Verify
-    assertNotNull(result);
-    // Assertions based on expected behavior
-}
-
-@Test
-public void testGetTaskConfiguration_MultipleFundCodes() {
-    // Setup
-    List<Integer> fundCodes = Arrays.asList(123, 456);
-    String perimeter = "LinkFundConstants.ANOTHER_CONSTANT";
-    TaskConfigurationDTO taskConfig = new TaskConfigurationDTO();
-
-    // Mock behavior (if needed)
-    when(mockTaskConfigUtil.getFundRules(any(), any())).thenReturn(...);
-
-    // Execute
-    TaskConfigurationDTO result = yourService.getTaskConfiguration(fundCodes, perimeter);
-
-    // Verify
-    assertNotNull(result);
-    // Assertions based on expected behavior
-}
-
