@@ -1,49 +1,14 @@
-import org.mockito.ArgumentCaptor;
-
-@Test
-void testGetTaskConfiguration_withSingleFundCode() throws LinkServiceException {
-    // Arrange
-    List<Integer> fundCodes = Arrays.asList(1);
-    String perimeter = LinkFundConstants.WFS;
-
-    List<FundTasksDTO> mockTasks = Arrays.asList(new FundTasksDTO());
-    FundRulesDTO mockRules = new FundRulesDTO();
-
-    // Mock the dependent methods
-    when(taskConfigUtil.getUniqueTasksForOneFund(eq(1), any(TaskConfigurationDTO.class), eq(perimeter)))
-        .thenReturn(mockTasks);
-    when(fundRulesUtil.getFundRulesForOneFund(eq(1), eq(perimeter)))
-        .thenReturn(mockRules);
-
-    // Act
-    TaskConfigurationDTO result = taskConfigurationService.getTaskConfiguration(fundCodes, perimeter);
-
-    // Assert
-    assertNotNull(result);
-    assertEquals(perimeter, result.getPerimeter());
-    assertEquals(fundCodes, result.getFundCodes());
-    assertEquals(mockTasks, result.getFundTasks());
-    assertEquals(mockRules, result.getFundRules());
-
-    // Capture and assert the arguments
-    ArgumentCaptor<TaskConfigurationDTO> captor = ArgumentCaptor.forClass(TaskConfigurationDTO.class);
-    verify(taskConfigUtil).getUniqueTasksForOneFund(eq(1), captor.capture(), eq(perimeter));
-    TaskConfigurationDTO capturedDTO = captor.getValue();
-    assertEquals(perimeter, capturedDTO.getPerimeter());
-    assertEquals(fundCodes, capturedDTO.getFundCodes());
-
-    verify(fundRulesUtil).getFundRulesForOneFund(eq(1), eq(perimeter));
-}
-
-
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.util.CollectionUtils;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -56,6 +21,15 @@ class TaskConfigurationServiceTest {
     @Mock
     private FundRulesUtil fundRulesUtil;
 
+    @Mock
+    private TaskListRepository taskListRepository;
+
+    @Mock
+    private TaskConfigRepository taskConfigRepository;
+
+    @Mock
+    private FundRuleRepository fundRuleRepository;
+
     @InjectMocks
     private TaskConfigurationService taskConfigurationService;
 
@@ -65,86 +39,85 @@ class TaskConfigurationServiceTest {
     }
 
     @Test
-    void testGetTaskConfiguration_withSingleFundCode() throws LinkServiceException {
+    void testSaveTaskConfiguration_Success() throws LinkServiceException {
         // Arrange
-        List<Integer> fundCodes = Arrays.asList(1);
-        String perimeter = LinkFundConstants.WFS;
+        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
+        taskConfiguration.setPerimeter(LinkFundConstants.MFS);
+        List<Integer> fundCodes = List.of(1, 2);
+        taskConfiguration.setFundCodes(fundCodes);
+        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
+        taskConfiguration.setFundTasks(fundTasks);
 
-        List<FundTasksDTO> mockTasks = Arrays.asList(new FundTasksDTO());
-        FundRulesDTO mockRules = new FundRulesDTO();
+        List<TaskConfig> tasksConfigsToDB = new ArrayList<>();
+        List<FundRule> fundRulesToDB = new ArrayList<>();
+        List<TaskList> masterTaskList = List.of(new TaskList());
 
-        when(taskConfigUtil.getUniqueTasksForOneFund(1, any(TaskConfigurationDTO.class), eq(perimeter)))
-            .thenReturn(mockTasks);
-        when(fundRulesUtil.getFundRulesForOneFund(1, perimeter))
-            .thenReturn(mockRules);
+        when(taskListRepository.findAll()).thenReturn(masterTaskList);
+        when(taskConfigRepository.saveAll(tasksConfigsToDB)).thenReturn(tasksConfigsToDB);
 
         // Act
-        TaskConfigurationDTO result = taskConfigurationService.getTaskConfiguration(fundCodes, perimeter);
+        Boolean result = taskConfigurationService.saveTaskConfiguration(taskConfiguration);
 
         // Assert
-        assertNotNull(result);
-        assertEquals(perimeter, result.getPerimeter());
-        assertEquals(fundCodes, result.getFundCodes());
-        assertEquals(mockTasks, result.getFundTasks());
-        assertEquals(mockRules, result.getFundRules());
-
-        verify(taskConfigUtil).getUniqueTasksForOneFund(1, any(TaskConfigurationDTO.class), eq(perimeter));
-        verify(fundRulesUtil).getFundRulesForOneFund(1, perimeter);
+        assertTrue(result);
+        verify(taskConfigUtil).preChecksBeforeSave(fundTasks);
+        verify(taskConfigUtil, times(fundCodes.size())).updateTaskConfigTable(eq(taskConfiguration), eq(tasksConfigsToDB), eq(masterTaskList), anyInt(), any());
+        verify(fundRulesUtil, times(fundCodes.size())).updateFundRulesTable(eq(tasksConfigsToDB), eq(taskConfiguration), eq(fundRulesToDB), eq(masterTaskList), anyInt());
+        verify(fundRuleRepository).saveAll(fundRulesToDB);
+        verify(taskConfigRepository).saveAll(tasksConfigsToDB);
     }
 
     @Test
-    void testGetTaskConfiguration_withMultipleFundCodes() throws LinkServiceException {
+    void testSaveTaskConfiguration_NoTaskConfiguration() {
         // Arrange
-        List<Integer> fundCodes = Arrays.asList(1, 2);
-        String perimeter = LinkFundConstants.WFS;
+        TaskConfigurationDTO taskConfiguration = null;
 
-        List<FundTasksDTO> mockTasks = Arrays.asList(new FundTasksDTO());
-        FundRulesDTO mockRules = new FundRulesDTO();
-
-        when(taskConfigUtil.getUniqueTasks(fundCodes, any(TaskConfigurationDTO.class), eq(perimeter)))
-            .thenReturn(mockTasks);
-        when(fundRulesUtil.getFundRules(fundCodes, perimeter))
-            .thenReturn(mockRules);
-
-        // Act
-        TaskConfigurationDTO result = taskConfigurationService.getTaskConfiguration(fundCodes, perimeter);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(perimeter, result.getPerimeter());
-        assertEquals(fundCodes, result.getFundCodes());
-        assertEquals(mockTasks, result.getFundTasks());
-        assertEquals(mockRules, result.getFundRules());
-
-        verify(taskConfigUtil).getUniqueTasks(fundCodes, any(TaskConfigurationDTO.class), eq(perimeter));
-        verify(fundRulesUtil).getFundRules(fundCodes, perimeter);
+        // Act & Assert
+        assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
     }
 
     @Test
-    void testGetTaskConfiguration_withNonWfsPerimeter() throws LinkServiceException {
+    void testSaveTaskConfiguration_EmptyFundTasks() {
         // Arrange
-        List<Integer> fundCodes = Arrays.asList(1, 2);
-        String perimeter = "NON_WFS";
+        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
+        taskConfiguration.setFundTasks(new ArrayList<>());
 
-        List<FundTasksDTO> mockTasks = Arrays.asList(new FundTasksDTO());
-        FundRulesDTO mockRules = new FundRulesDTO();
+        // Act & Assert
+        LinkServiceException exception = assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
+        assertEquals("The Fund Tasks are Empty", exception.getMessage());
+    }
 
-        when(taskConfigUtil.getUniqueTasks(fundCodes, any(TaskConfigurationDTO.class), eq(perimeter)))
-            .thenReturn(mockTasks);
-        when(fundRulesUtil.getFundRules(fundCodes, perimeter))
-            .thenReturn(mockRules);
+    @Test
+    void testSaveTaskConfiguration_EmptyMasterTaskList() {
+        // Arrange
+        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
+        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
+        taskConfiguration.setFundTasks(fundTasks);
+
+        when(taskListRepository.findAll()).thenReturn(new ArrayList<>());
+
+        // Act & Assert
+        LinkServiceException exception = assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
+        assertEquals("There is no tasks available in taskListRepository", exception.getMessage());
+    }
+
+    @Test
+    void testSaveTaskConfiguration_FailureToSave() {
+        // Arrange
+        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
+        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
+        taskConfiguration.setFundTasks(fundTasks);
+        List<TaskConfig> tasksConfigsToDB = new ArrayList<>();
+        List<FundRule> fundRulesToDB = new ArrayList<>();
+        List<TaskList> masterTaskList = List.of(new TaskList());
+
+        when(taskListRepository.findAll()).thenReturn(masterTaskList);
+        when(taskConfigRepository.saveAll(tasksConfigsToDB)).thenReturn(new ArrayList<>()); // Simulating a failure to save
 
         // Act
-        TaskConfigurationDTO result = taskConfigurationService.getTaskConfiguration(fundCodes, perimeter);
+        Boolean result = taskConfigurationService.saveTaskConfiguration(taskConfiguration);
 
         // Assert
-        assertNotNull(result);
-        assertEquals(perimeter, result.getPerimeter());
-        assertEquals(fundCodes, result.getFundCodes());
-        assertEquals(mockTasks, result.getFundTasks());
-        assertEquals(mockRules, result.getFundRules());
-
-        verify(taskConfigUtil).getUniqueTasks(fundCodes, any(TaskConfigurationDTO.class), eq(perimeter));
-        verify(fundRulesUtil).getFundRules(fundCodes, perimeter);
+        assertFalse(result);
     }
 }
