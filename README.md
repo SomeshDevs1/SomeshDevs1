@@ -10,7 +10,6 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class TaskSetupServiceImplTest {
@@ -19,16 +18,13 @@ public class TaskSetupServiceImplTest {
     private TaskSetupServiceImpl taskSetupServiceImpl;
 
     @Mock
-    private TaskListRepository taskListRepository;
-
-    @Mock
     private TaskConfigUtil taskConfigUtil;
 
     @Mock
-    private FundRulesUtil fundRulesUtil;
+    private FundServiceForLink fundServiceForLink;
 
     @Mock
-    private TaskConfigRepository taskConfigRepository;
+    private FundRepo fundRepo;
 
     @BeforeEach
     public void setup() {
@@ -36,158 +32,35 @@ public class TaskSetupServiceImplTest {
     }
 
     @Test
-    public void testSaveTaskConfiguration_Success() throws Exception {
+    public void testDeleteTaskConfig_Success() throws Exception {
         // Arrange
+        Integer taskNumber = 1;
         TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
-        taskConfiguration.setFundCodes(Arrays.asList("FundCode1", "FundCode2"));
-
-        FundDetail fundDetail = new FundDetail();
-        fundDetail.setFundId("FundId1");
-        List<FundDetail> fundDetails = Collections.singletonList(fundDetail);
-
-        when(taskConfigUtil.getFundDetails(any(TaskConfigurationDTO.class))).thenReturn(fundDetails);
-        when(taskConfigUtil.preChecksBeforeSave(anyList())).thenReturn(true);
-        when(taskConfigUtil.updateTaskConfigTable(any(), anyList(), anyList())).thenReturn(true);
-        when(fundRulesUtil.updateFundRulesTable(anyList(), any(), any(), anyList())).thenReturn(true);
-
-        List<TaskListDTO> masterTaskList = new ArrayList<>();
-        TaskListDTO taskListDTO = new TaskListDTO();
-        masterTaskList.add(taskListDTO);
-
-        when(taskListRepository.findAll()).thenReturn(masterTaskList);
-
-        // Act
-        boolean result = taskSetupServiceImpl.saveTaskConfiguration(taskConfiguration);
-
-        // Assert
-        assertTrue(result, "The saveTaskConfiguration method should return true.");
-        verify(taskConfigUtil).preChecksBeforeSave(anyList());
-        verify(taskConfigUtil).updateTaskConfigTable(any(), anyList(), anyList());
-        verify(fundRulesUtil).updateFundRulesTable(anyList(), any(), any(), anyList());
-    }
-}
-
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.util.CollectionUtils;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-class TaskConfigurationServiceTest {
-
-    @Mock
-    private TaskConfigUtil taskConfigUtil;
-
-    @Mock
-    private FundRulesUtil fundRulesUtil;
-
-    @Mock
-    private TaskListRepository taskListRepository;
-
-    @Mock
-    private TaskConfigRepository taskConfigRepository;
-
-    @Mock
-    private FundRuleRepository fundRuleRepository;
-
-    @InjectMocks
-    private TaskConfigurationService taskConfigurationService;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
-    @Test
-    void testSaveTaskConfiguration_Success() throws LinkServiceException {
-        // Arrange
-        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
-        taskConfiguration.setPerimeter(LinkFundConstants.MFS);
-        List<Integer> fundCodes = List.of(1, 2);
+        List<Integer> fundCodes = Arrays.asList(100, 200);
         taskConfiguration.setFundCodes(fundCodes);
-        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
+
+        FundTasksDTO fundTask = new FundTasksDTO();
+        List<FundTasksDTO> fundTasks = new ArrayList<>();
+        fundTasks.add(fundTask);
         taskConfiguration.setFundTasks(fundTasks);
 
-        List<TaskConfig> tasksConfigsToDB = new ArrayList<>();
-        List<FundRule> fundRulesToDB = new ArrayList<>();
-        List<TaskList> masterTaskList = List.of(new TaskList());
+        FundDetailForLinkDto fundDetail = new FundDetailForLinkDto();
+        fundDetail.setFundId(100);
+        fundDetail.setFundGroups(Arrays.asList("Group1"));
+        fundDetail.setTeams(Arrays.asList("Team1"));
+        fundDetail.setClientId(12345);
 
-        when(taskListRepository.findAll()).thenReturn(masterTaskList);
-        when(taskConfigRepository.saveAll(tasksConfigsToDB)).thenReturn(tasksConfigsToDB);
+        when(taskConfigUtil.deleteTaskConfig(any(), anyList(), any(FundTasksDTO.class))).thenReturn(true);
+        when(taskConfigUtil.getWfsFundGroupId(anyList())).thenReturn("Group1");
+        when(taskConfigUtil.getWfsTeamId(anyList())).thenReturn("Team1");
+        when(fundServiceForLink.getFundDetailById(anyInt())).thenReturn(fundDetail);
 
         // Act
-        Boolean result = taskConfigurationService.saveTaskConfiguration(taskConfiguration);
+        Boolean result = taskSetupServiceImpl.deleteTaskConfig(taskNumber, taskConfiguration);
 
         // Assert
-        assertTrue(result);
-        verify(taskConfigUtil).preChecksBeforeSave(fundTasks);
-        verify(taskConfigUtil, times(fundCodes.size())).updateTaskConfigTable(eq(taskConfiguration), eq(tasksConfigsToDB), eq(masterTaskList), anyInt(), any());
-        verify(fundRulesUtil, times(fundCodes.size())).updateFundRulesTable(eq(tasksConfigsToDB), eq(taskConfiguration), eq(fundRulesToDB), eq(masterTaskList), anyInt());
-        verify(fundRuleRepository).saveAll(fundRulesToDB);
-        verify(taskConfigRepository).saveAll(tasksConfigsToDB);
-    }
-
-    @Test
-    void testSaveTaskConfiguration_NoTaskConfiguration() {
-        // Arrange
-        TaskConfigurationDTO taskConfiguration = null;
-
-        // Act & Assert
-        assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
-    }
-
-    @Test
-    void testSaveTaskConfiguration_EmptyFundTasks() {
-        // Arrange
-        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
-        taskConfiguration.setFundTasks(new ArrayList<>());
-
-        // Act & Assert
-        LinkServiceException exception = assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
-        assertEquals("The Fund Tasks are Empty", exception.getMessage());
-    }
-
-    @Test
-    void testSaveTaskConfiguration_EmptyMasterTaskList() {
-        // Arrange
-        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
-        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
-        taskConfiguration.setFundTasks(fundTasks);
-
-        when(taskListRepository.findAll()).thenReturn(new ArrayList<>());
-
-        // Act & Assert
-        LinkServiceException exception = assertThrows(LinkServiceException.class, () -> taskConfigurationService.saveTaskConfiguration(taskConfiguration));
-        assertEquals("There is no tasks available in taskListRepository", exception.getMessage());
-    }
-
-    @Test
-    void testSaveTaskConfiguration_FailureToSave() {
-        // Arrange
-        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
-        List<FundTasksDTO> fundTasks = List.of(new FundTasksDTO());
-        taskConfiguration.setFundTasks(fundTasks);
-        List<TaskConfig> tasksConfigsToDB = new ArrayList<>();
-        List<FundRule> fundRulesToDB = new ArrayList<>();
-        List<TaskList> masterTaskList = List.of(new TaskList());
-
-        when(taskListRepository.findAll()).thenReturn(masterTaskList);
-        when(taskConfigRepository.saveAll(tasksConfigsToDB)).thenReturn(new ArrayList<>()); // Simulating a failure to save
-
-        // Act
-        Boolean result = taskConfigurationService.saveTaskConfiguration(taskConfiguration);
-
-        // Assert
-        assertFalse(result);
+        assertTrue(result, "The deleteTaskConfig method should return true.");
+        verify(taskConfigUtil).deleteTaskConfigfromDB(any(), anyList(), any(FundTasksDTO.class));
+        verify(taskConfigUtil).sortTaskOrderAfterDelete(anyInt(), anyList());
     }
 }
