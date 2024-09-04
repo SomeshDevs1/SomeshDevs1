@@ -1,4 +1,75 @@
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+public class YourServiceTest {
+
+    @Mock
+    private TaskConfigRepository taskConfigRepository;
+
+    @Mock
+    private FundServiceForLink fundServiceforLink;
+
+    @InjectMocks
+    private YourService yourService; // Replace with the actual service class name
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testFetchWfsTaskCutoffbyFund() throws LinkServiceException {
+        // Arrange
+        List<Integer> fundIds = Arrays.asList(1, 2, 3);
+        Integer taskId = 101;
+        String area = "SampleArea";
+        String field = "SampleField";
+        
+        TaskConfig taskConfig1 = new TaskConfig(/* initialize with necessary data */);
+        taskConfig1.setFundId(1);
+        taskConfig1.setUserCuttoff(/* initialize with necessary data */);
+        taskConfig1.setUserType("TypeA");
+        
+        TaskList taskList = new TaskList();
+        taskList.setTaskName("SampleTask");
+        taskConfig1.setTaskList(taskList);
+        
+        FundDetailForLinkDto fundDetail = new FundDetailForLinkDto();
+        fundDetail.setCountryOriginCode("US");
+
+        when(taskConfigRepository.findByPerimeterAndTaskIdAndFundIdIn(area, taskId, fundIds))
+            .thenReturn(Arrays.asList(taskConfig1));
+        when(fundServiceforLink.getFundDetailById(fundIds.get(0)))
+            .thenReturn(fundDetail);
+        
+        // Act
+        List<WfsTaskCutoffDto> result = yourService.fetchWfsTaskCutoffbyFund(fundIds, taskId, area, field);
+        
+        // Assert
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        WfsTaskCutoffDto dto = result.get(0);
+        assertEquals("SampleTask", dto.getTaskName());
+        assertEquals(taskId, dto.getTaskId());
+        assertEquals(1, dto.getFundId());
+        assertEquals("US", dto.getCountryCode()); // Assuming you are returning this value in the DTO
+        // Add more assertions based on your logic and expected output
+        
+        verify(taskConfigRepository, times(1)).findByPerimeterAndTaskIdAndFundIdIn(area, taskId, fundIds);
+        verify(fundServiceforLink, times(1)).getFundDetailById(fundIds.get(0));
+    }
+}
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
