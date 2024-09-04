@@ -1,3 +1,73 @@
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+public class TaskSetupServiceImplTest {
+
+    @InjectMocks
+    private TaskSetupServiceImpl taskSetupServiceImpl;
+
+    @Mock
+    private TaskListRepository taskListRepository;
+
+    @Mock
+    private TaskConfigUtil taskConfigUtil;
+
+    @Mock
+    private FundRulesUtil fundRulesUtil;
+
+    @Mock
+    private TaskConfigRepository taskConfigRepository;
+
+    @BeforeEach
+    public void setup() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    public void testSaveTaskConfiguration_Success() throws Exception {
+        // Arrange
+        TaskConfigurationDTO taskConfiguration = new TaskConfigurationDTO();
+        taskConfiguration.setFundCodes(Arrays.asList("FundCode1", "FundCode2"));
+
+        FundDetail fundDetail = new FundDetail();
+        fundDetail.setFundId("FundId1");
+        List<FundDetail> fundDetails = Collections.singletonList(fundDetail);
+
+        when(taskConfigUtil.getFundDetails(any(TaskConfigurationDTO.class))).thenReturn(fundDetails);
+        when(taskConfigUtil.preChecksBeforeSave(anyList())).thenReturn(true);
+        when(taskConfigUtil.updateTaskConfigTable(any(), anyList(), anyList())).thenReturn(true);
+        when(fundRulesUtil.updateFundRulesTable(anyList(), any(), any(), anyList())).thenReturn(true);
+
+        List<TaskListDTO> masterTaskList = new ArrayList<>();
+        TaskListDTO taskListDTO = new TaskListDTO();
+        masterTaskList.add(taskListDTO);
+
+        when(taskListRepository.findAll()).thenReturn(masterTaskList);
+
+        // Act
+        boolean result = taskSetupServiceImpl.saveTaskConfiguration(taskConfiguration);
+
+        // Assert
+        assertTrue(result, "The saveTaskConfiguration method should return true.");
+        verify(taskConfigUtil).preChecksBeforeSave(anyList());
+        verify(taskConfigUtil).updateTaskConfigTable(any(), anyList(), anyList());
+        verify(fundRulesUtil).updateFundRulesTable(anyList(), any(), any(), anyList());
+    }
+}
+
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
