@@ -1,6 +1,86 @@
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+public class YourServiceTest {
+
+    @Mock
+    private TaskConfigRepository taskConfigRepository;
+
+    @Mock
+    private FundServiceForLink fundServiceforLink;
+
+    @InjectMocks
+    private YourService yourService; // Replace with the actual service class name
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testSavellfsTaskCutoffbyFund() throws LinkServiceException {
+        // Arrange
+        WfsTaskCutOffDto dto1 = new WfsTaskCutOffDto();
+        dto1.setTaskId(101);
+        dto1.setFundId(1);
+        dto1.setUserType("TypeA");
+        dto1.setCutoff(/* initialize cutoff time */);
+        
+        List<WfsTaskCutOffDto> wfsTaskConfiguration = Arrays.asList(dto1);
+        String modifiedBy = "user123";
+        
+        FundDetailForLinkDto fundDetail = new FundDetailForLinkDto();
+        fundDetail.setCountryOriginCode("US");
+
+        TaskConfig taskConfig = new TaskConfig();
+        taskConfig.setUserCuttoff(/* set initial cutoff time */);
+        taskConfig.setUserType("TypeA");
+
+        when(fundServiceforLink.getFundDetailById(dto1.getFundId())).thenReturn(fundDetail);
+        when(taskConfigRepository.findByPerimeterAndTaskIdAndFundIdandUserType("WFS", dto1.getTaskId(), dto1.getFundId(), dto1.getUserType()))
+            .thenReturn(taskConfig);
+        when(taskConfigRepository.saveAll(anyList())).thenReturn(Arrays.asList(taskConfig));
+        
+        // Act
+        Boolean result = yourService.savellfsTaskCutoffbyFund(wfsTaskConfiguration, modifiedBy);
+        
+        // Assert
+        assertTrue(result);
+        assertEquals(modifiedBy, taskConfig.getModifiedBy());
+        verify(taskConfigRepository, times(1)).findByPerimeterAndTaskIdAndFundIdandUserType("WFS", dto1.getTaskId(), dto1.getFundId(), dto1.getUserType());
+        verify(fundServiceforLink, times(1)).getFundDetailById(dto1.getFundId());
+        verify(taskConfigRepository, times(1)).saveAll(anyList());
+    }
+
+    @Test
+    void testSavellfsTaskCutoffbyFund_EmptyInput() throws LinkServiceException {
+        // Arrange
+        List<WfsTaskCutOffDto> wfsTaskConfiguration = new ArrayList<>();
+        String modifiedBy = "user123";
+        
+        // Act
+        Boolean result = yourService.savellfsTaskCutoffbyFund(wfsTaskConfiguration, modifiedBy);
+        
+        // Assert
+        assertFalse(result);
+        verify(taskConfigRepository, never()).saveAll(anyList());
+        verify(fundServiceforLink, never()).getFundDetailById(anyInt());
+    }
+}
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import java.util.Arrays;
 import java.util.List;
 
