@@ -1,6 +1,101 @@
 package com.sgss.ast.fvs.vap.link.fund.api.util;
 
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.RestTemplate;
+
+@ExtendWith(MockitoExtension.class)
+class TaskSetUpUtilServiceTest {
+
+    @InjectMocks
+    private TaskSetUpUtilService taskSetUpUtilService;
+
+    @Mock
+    private RestTemplate restTemplate;
+
+    @Mock
+    private TaskConfigRepository taskConfigRepository;
+
+    @Mock
+    private FundRulesUtilService fundRulesUtilService;
+
+    @Mock
+    private FundServiceForLink fundServiceForLink;
+
+    @Mock
+    private CurrentTaskRunRepository currentTaskRunRepository;
+
+    @Mock
+    private CurrentTaskConfigRepository currentTaskConfigRepository;
+
+    @Mock
+    private FundRepository fundRepo;
+
+    @Mock
+    private OAuth2RestTemplate oAuth2RestTemplate;
+
+    @BeforeEach
+    void setUp() {
+        // Mock any initialization logic if necessary
+    }
+
+    @Test
+    void testAddTaskAllocation_Success() throws Exception {
+        // Arrange
+        TaskConfigurationDTO taskConfiguration = mock(TaskConfigurationDTO.class);
+        Integer taskId = 123;
+        String userType = "Admin";
+        TaskAllocationItemDto taskAllocationDto = new TaskAllocationItemDto();
+        Boolean expectedResponse = true;
+
+        when(restTemplate.postForObject(anyString(), eq(taskAllocationDto), eq(Boolean.class)))
+                .thenReturn(expectedResponse);
+        when(taskSetUpUtilService.getTaskAllocationItem(taskConfiguration, taskId, userType))
+                .thenReturn(taskAllocationDto);
+
+        // Act
+        Boolean result = taskSetUpUtilService.addTaskAllocation(taskConfiguration, taskId, userType);
+
+        // Assert
+        assertTrue(result);
+        verify(restTemplate, times(1)).postForObject(anyString(), eq(taskAllocationDto), eq(Boolean.class));
+        verify(taskSetUpUtilService, times(1)).getTaskAllocationItem(taskConfiguration, taskId, userType);
+    }
+
+    @Test
+    void testAddTaskAllocation_Failure_LinkServiceException() throws Exception {
+        // Arrange
+        TaskConfigurationDTO taskConfiguration = mock(TaskConfigurationDTO.class);
+        Integer taskId = 123;
+        String userType = "Admin";
+        TaskAllocationItemDto taskAllocationDto = new TaskAllocationItemDto();
+
+        when(taskSetUpUtilService.getTaskAllocationItem(taskConfiguration, taskId, userType))
+                .thenReturn(taskAllocationDto);
+        when(restTemplate.postForObject(anyString(), eq(taskAllocationDto), eq(Boolean.class)))
+                .thenThrow(new LinkServiceException("Error"));
+
+        // Act
+        Boolean result = taskSetUpUtilService.addTaskAllocation(taskConfiguration, taskId, userType);
+
+        // Assert
+        assertFalse(result);
+        verify(restTemplate, times(1)).postForObject(anyString(), eq(taskAllocationDto), eq(Boolean.class));
+        verify(taskSetUpUtilService, times(1)).getTaskAllocationItem(taskConfiguration, taskId, userType);
+    }
+}
+
+
+package com.sgss.ast.fvs.vap.link.fund.api.util;
+
+import static org.mockito.Mockito.*;
 
 import java.util.Arrays;
 
