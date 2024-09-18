@@ -1,74 +1,16 @@
-import static org.mockito.Mockito.*;
-import static org.junit.Assert.*;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.web.util.UriComponentsBuilder;
+Here's a LinkedIn work experience description you can use, tailored to your current role:
 
-public class TaskConfigUtilServiceTest {
+---
 
-    @Mock
-    private TaskConfigUtilService taskConfigUtilService; // Assuming this is the class
+**Software Engineer - JUnit Testing | Societe Generale**  
+*April 2024 – Present*  
 
-    @Mock
-    private Logger logger; // Mock logger if used
+- Actively contribute to the development and maintenance of enterprise-level applications, including **User Module**, **Fund Commons**, and **VAP**.  
+- Write and optimize **JUnit test cases** to ensure the robustness and reliability of various services and methods, focusing on complex data structures and service interactions.  
+- Collaborate closely with cross-functional teams to design test strategies that improve code quality and system performance.  
+- Debug and resolve issues efficiently, enhancing overall application stability and reducing technical debt.  
+- Consistently align testing efforts with Agile methodologies to meet project deadlines and deliver high-quality software solutions.
 
-    // Inject the mocks into the class under test
-    @InjectMocks
-    private TaskConfigUtilService serviceUnderTest;
+---
 
-    private String taskAllocationRestUrl = "http://localhost/test";
-
-    @Before
-    public void setup() {
-        MockitoAnnotations.openMocks(this);  // Initialize mocks
-    }
-
-    @Test
-    public void testGetRestTemplate_Success() {
-        // When: Call the getRestTemplate method
-        UriComponentsBuilder uriBuilder = serviceUnderTest.getRestTemplate();
-
-        // Then: Validate that the URL is properly built
-        assertNotNull(uriBuilder);
-        assertEquals(taskAllocationRestUrl, uriBuilder.toUriString());
-    }
-
-    @Test
-    public void testAddTaskAllocation_WithValidURL() {
-        // Given
-        TaskAllocationItemDto taskAllocationDto = new TaskAllocationItemDto(); // Mock object
-        when(taskConfigUtilService.getTaskAllocationItem(any(), anyInt(), anyString())).thenReturn(taskAllocationDto);
-
-        // Mock getRestTemplate to return a valid URL
-        when(serviceUnderTest.getRestTemplate()).thenReturn(UriComponentsBuilder.fromHttpUrl(taskAllocationRestUrl));
-
-        when(restTemplate.postForObject(anyString(), any(), eq(Boolean.class))).thenReturn(true);
-
-        // When
-        boolean result = serviceUnderTest.addTaskAllocation(mock(TaskConfigurationDTO.class), 1, "USER");
-
-        // Then
-        assertTrue(result);
-        verify(restTemplate).postForObject(anyString(), eq(taskAllocationDto), eq(Boolean.class));
-    }
-
-    @Test
-    public void testAddTaskAllocation_NullUrl() {
-        // Given
-        TaskAllocationItemDto taskAllocationDto = new TaskAllocationItemDto(); // Mock object
-        when(taskConfigUtilService.getTaskAllocationItem(any(), anyInt(), anyString())).thenReturn(taskAllocationDto);
-
-        // Mock getRestTemplate to return a null URL
-        when(serviceUnderTest.getRestTemplate()).thenReturn(UriComponentsBuilder.newInstance()); // No URL set
-
-        // When
-        boolean result = serviceUnderTest.addTaskAllocation(mock(TaskConfigurationDTO.class), 1, "USER");
-
-        // Then
-        assertFalse(result);  // Should return false because URL is null
-        verify(logger).error("Generated URL is null or empty");
-    }
-}
+Feel free to modify it based on your specific contributions or goals!
