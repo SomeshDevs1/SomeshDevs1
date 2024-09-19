@@ -1,16 +1,113 @@
-Here's a LinkedIn work experience description you can use, tailored to your current role:
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.cache.CacheManager;
 
----
+import java.util.Optional;
 
-**Software Engineer - JUnit Testing | Societe Generale**  
-*April 2024 – Present*  
+class MonitoringCacheDaoTest {
 
-- Actively contribute to the development and maintenance of enterprise-level applications, including **User Module**, **Fund Commons**, and **VAP**.  
-- Write and optimize **JUnit test cases** to ensure the robustness and reliability of various services and methods, focusing on complex data structures and service interactions.  
-- Collaborate closely with cross-functional teams to design test strategies that improve code quality and system performance.  
-- Debug and resolve issues efficiently, enhancing overall application stability and reducing technical debt.  
-- Consistently align testing efforts with Agile methodologies to meet project deadlines and deliver high-quality software solutions.
+    @Mock
+    private MonitoringFundRepository monitoringFundRepository;
 
----
+    @InjectMocks
+    private MonitoringCacheDao monitoringCacheDao;
 
-Feel free to modify it based on your specific contributions or goals!
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
+
+    @Test
+    void testGetDataFromMonitoringDetailsCache_Success() throws Exception {
+        Long monitoringID = 1L;
+        MonitoringFund monitoringFund = new MonitoringFund();
+        monitoringFund.setMonitoringId(monitoringID);
+        
+        // Mock the repository response
+        when(monitoringFundRepository.findById(monitoringID)).thenReturn(Optional.of(monitoringFund));
+        
+        // Test the method
+        MonitoringFundDto result = monitoringCacheDao.getDataFromMonitoringDetailsCache(monitoringID);
+        
+        // Validate the result
+        assertNotNull(result);
+        verify(monitoringFundRepository, times(1)).findById(monitoringID);
+    }
+
+    @Test
+    void testGetDataFromMonitoringDetailsCache_Exception() {
+        Long monitoringID = 1L;
+        
+        // Simulate exception in repository call
+        when(monitoringFundRepository.findById(monitoringID)).thenThrow(new RuntimeException("Database error"));
+        
+        // Test and assert the exception
+        assertThrows(LinkServiceException.class, () -> {
+            monitoringCacheDao.getDataFromMonitoringDetailsCache(monitoringID);
+        });
+        
+        verify(monitoringFundRepository, times(1)).findById(monitoringID);
+    }
+
+    @Test
+    void testUpdateCacheMonitoringDetails_Success() throws Exception {
+        Long monitoringID = 1L;
+        MonitoringFund monitoringFund = new MonitoringFund();
+        monitoringFund.setMonitoringId(monitoringID);
+
+        // Mock the repository response
+        when(monitoringFundRepository.findById(monitoringID)).thenReturn(Optional.of(monitoringFund));
+
+        // Test the method
+        MonitoringFundDto result = monitoringCacheDao.updateCacheMonitoringDetails(monitoringID);
+
+        // Validate the result
+        assertNotNull(result);
+        verify(monitoringFundRepository, times(1)).findById(monitoringID);
+    }
+
+    @Test
+    void testUpdateCacheMonitoringDetails_Exception() {
+        Long monitoringID = 1L;
+
+        // Simulate exception in repository call
+        when(monitoringFundRepository.findById(monitoringID)).thenThrow(new RuntimeException("Database error"));
+
+        // Test and assert the exception
+        assertThrows(LinkServiceException.class, () -> {
+            monitoringCacheDao.updateCacheMonitoringDetails(monitoringID);
+        });
+
+        verify(monitoringFundRepository, times(1)).findById(monitoringID);
+    }
+
+    @Test
+    void testDeleteMonitoringCacheValue_Success() throws Exception {
+        Long monitoringID = 1L;
+
+        // Test the method
+        ResponseDto result = monitoringCacheDao.deleteMonitoringCacheValue(monitoringID);
+
+        // Validate the result
+        assertNotNull(result);
+        assertEquals("Data has Deleted Successfully in MonitoringCache", result.getMessage());
+    }
+
+    @Test
+    void testDeleteMonitoringCacheValue_Exception() {
+        Long monitoringID = 1L;
+
+        // Simulate exception during cache deletion
+        doThrow(new RuntimeException("Cache error")).when(monitoringFundRepository).deleteById(monitoringID);
+
+        // Test and assert the exception
+        assertThrows(LinkServiceException.class, () -> {
+            monitoringCacheDao.deleteMonitoringCacheValue(monitoringID);
+        });
+    }
+}
