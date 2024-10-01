@@ -5,28 +5,21 @@ import org.junit.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.launch.JobExecutionAlreadyRunningException;
-import org.springframework.batch.core.launch.JobInstanceAlreadyCompleteException;
-import org.springframework.batch.core.launch.JobRestartException;
-import org.springframework.batch.core.repository.JobParametersInvalidException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+import java.util.ArrayList;
+import java.util.List;
 
-public class YourServiceTest {
+public class ChecklistBatchProcessorTest {
 
     @Mock
-    private JobLauncher jobLauncher;
-    
-    @Mock
-    private JobExecution jobExecution;
+    private CurrentTaskRunRepository currentTaskRunRepository;
 
     @Mock
-    private Job yourJob; // Replace with your specific job if needed
+    private RestTemplate restTemplate;
 
     @InjectMocks
-    private YourService yourService; // The service containing the method
+    private ChecklistBatchProcessor checklistBatchProcessor;
 
     @Before
     public void setUp() {
@@ -34,46 +27,56 @@ public class YourServiceTest {
     }
 
     @Test
-    public void testProcessCleanMonitoringFund_success() throws Exception {
+    public void testProcess_Success() throws Exception {
         // Given
-        when(jobLauncher.run(any(Job.class), any(JobParameters.class))).thenReturn(jobExecution);
-        when(jobExecution.getExitStatus()).thenReturn(ExitStatus.COMPLETED);
+        ChecklistBatch inputBatch = new ChecklistBatch();
+        inputBatch.setId(1L); // Assuming an ID field exists
+        List<TaskList> taskList = new ArrayList<>();
+        taskList.add(new TaskList()); // Add mock tasks
+        when(currentTaskRunRepository.findBySysId(anyLong())).thenReturn(taskList);
+
+        // Mock the REST call
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("http://test-service-url");
+        doNothing().when(restTemplate).postForEntity(builder.toUriString(), taskList, null);
 
         // When
-        String status = yourService.processCleanMonitoringFund();
+        ChecklistBatch result = checklistBatchProcessor.process(inputBatch);
 
         // Then
-        assertEquals(ExitStatus.COMPLETED.getExitCode(), status);
-        verify(jobLauncher, times(1)).run(any(Job.class), any(JobParameters.class));
+        verify(currentTaskRunRepository, times(1)).findBySysId(inputBatch.getSysId());
+        verify(restTemplate, times(1)).postForEntity(anyString(), eq(taskList), isNull());
+        assertEquals(inputBatch, result); // Ensure the returned object is the same as the input
     }
 
-    @Test
-    public void testProcessCleanMonitoringFund_jobAlreadyRunning() throws Exception {
+    @Test(expected = Exception.class)
+    public void testProcess_ExceptionOnRestCall() throws Exception {
         // Given
-        when(jobLauncher.run(any(Job.class), any(JobParameters.class)))
-            .thenThrow(new JobExecutionAlreadyRunningException("Job already running"));
+        ChecklistBatch inputBatch = new ChecklistBatch();
+        inputBatch.setId(1L); 
+        List<TaskList> taskList = new ArrayList<>();
+        taskList.add(new TaskList());
+        when(currentTaskRunRepository.findBySysId(anyLong())).thenReturn(taskList);
+
+        // Simulate an exception when the REST call is made
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("http://test-service-url");
+        doThrow(new RuntimeException("REST call failed")).when(restTemplate).postForEntity(builder.toUriString(), taskList, null);
 
         // When
-        String status = yourService.processCleanMonitoringFund();
+        checklistBatchProcessor.process(inputBatch);
 
-        // Then
-        assertEquals("ERROR", status); // Replace with actual error handling
-        verify(jobLauncher, times(1)).run(any(Job.class), any(JobParameters.class));
+        // Then (exception is expected, no assertions needed)
     }
 
-    @Test
-    public void testProcessCleanMonitoringFund_jobParametersInvalid() throws Exception {
+    @Test(expected = Exception.class)
+    public void testProcess_ExceptionOnRepositoryCall() throws Exception {
         // Given
-        when(jobLauncher.run(any(Job.class), any(JobParameters.class)))
-            .thenThrow(new JobParametersInvalidException("Invalid parameters"));
+        ChecklistBatch inputBatch = new ChecklistBatch();
+        inputBatch.setId(1L); 
+        when(currentTaskRunRepository.findBySysId(anyLong())).thenThrow(new RuntimeException("Database error"));
 
         // When
-        String status = yourService.processCleanMonitoringFund();
+        checklistBatchProcessor.process(inputBatch);
 
-        // Then
-        assertEquals("ERROR", status); // Replace with actual error handling
-        verify(jobLauncher, times(1)).run(any(Job.class), any(JobParameters.class));
+        // Then (exception is expected, no assertions needed)
     }
-
-    // Add similar tests for other exceptions
 }
