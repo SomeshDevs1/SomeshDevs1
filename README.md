@@ -1,82 +1,72 @@
-import static org.mockito.Mockito.*;
 import static org.junit.Assert.*;
-import org.junit.Before;
 import org.junit.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
-import java.util.ArrayList;
-import java.util.List;
+import org.mockito.Mockito;
 
-public class ChecklistBatchProcessorTest {
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
-    @Mock
-    private CurrentTaskRunRepository currentTaskRunRepository;
+public class FundPlanUtilsTest {
 
-    @Mock
-    private RestTemplate restTemplate;
+    @Test
+    public void testGetCutoff_SuccessCase() throws Exception {
+        // Mock inputs
+        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
+        String inputTimeStr = "12:00:00";  // Example valid time
+        String countryCode = "UK";
 
-    @InjectMocks
-    private ChecklistBatchProcessor checklistBatchProcessor;
+        // Create a mock FundRule object and set behavior
+        FundRule fundRuleMock = Mockito.mock(FundRule.class);
+        Mockito.when(fundRuleMock.getCutOffMoreThanOneDay()).thenReturn(1);
 
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
+        // Call the method
+        Timestamp result = FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
+
+        // Validate result - This depends on the expected output.
+        assertNotNull(result);
+        // You can use SimpleDateFormat to validate the output date format if necessary
+    }
+
+    @Test(expected = LinkServiceException.class)
+    public void testGetCutoff_InvalidTimeString() throws Exception {
+        // Mock inputs with invalid time string
+        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
+        String invalidInputTimeStr = "invalidTimeString";
+        String countryCode = "UK";
+
+        FundRule fundRuleMock = Mockito.mock(FundRule.class);
+        
+        // This should throw an exception due to invalid time format
+        FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, invalidInputTimeStr, countryCode);
     }
 
     @Test
-    public void testProcess_Success() throws Exception {
-        // Given
-        ChecklistBatch inputBatch = new ChecklistBatch();
-        inputBatch.setId(1L); // Assuming an ID field exists
-        List<TaskList> taskList = new ArrayList<>();
-        taskList.add(new TaskList()); // Add mock tasks
-        when(currentTaskRunRepository.findBySysId(anyLong())).thenReturn(taskList);
+    public void testGetCutoff_ZeroDaysCutoff() throws Exception {
+        // Test the scenario where fundRule.getCutOffMoreThanOneDay() returns 0
+        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
+        String inputTimeStr = "12:00:00";
+        String countryCode = "UK";
 
-        // Mock the REST call
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("http://test-service-url");
-        doNothing().when(restTemplate).postForEntity(builder.toUriString(), taskList, null);
+        FundRule fundRuleMock = Mockito.mock(FundRule.class);
+        Mockito.when(fundRuleMock.getCutOffMoreThanOneDay()).thenReturn(0);
 
-        // When
-        ChecklistBatch result = checklistBatchProcessor.process(inputBatch);
+        // Call the method
+        Timestamp result = FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
 
-        // Then
-        verify(currentTaskRunRepository, times(1)).findBySysId(inputBatch.getSysId());
-        verify(restTemplate, times(1)).postForEntity(anyString(), eq(taskList), isNull());
-        assertEquals(inputBatch, result); // Ensure the returned object is the same as the input
+        // Validate the result for this case
+        assertNotNull(result);
     }
 
-    @Test(expected = Exception.class)
-    public void testProcess_ExceptionOnRestCall() throws Exception {
-        // Given
-        ChecklistBatch inputBatch = new ChecklistBatch();
-        inputBatch.setId(1L); 
-        List<TaskList> taskList = new ArrayList<>();
-        taskList.add(new TaskList());
-        when(currentTaskRunRepository.findBySysId(anyLong())).thenReturn(taskList);
+    @Test(expected = LinkServiceException.class)
+    public void testGetCutoff_HoursExceededException() throws Exception {
+        // Test for exception when hours exceed limit
+        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
+        String inputTimeStr = "24:01:00";  // Invalid hours
+        String countryCode = "FR";
 
-        // Simulate an exception when the REST call is made
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString("http://test-service-url");
-        doThrow(new RuntimeException("REST call failed")).when(restTemplate).postForEntity(builder.toUriString(), taskList, null);
-
-        // When
-        checklistBatchProcessor.process(inputBatch);
-
-        // Then (exception is expected, no assertions needed)
-    }
-
-    @Test(expected = Exception.class)
-    public void testProcess_ExceptionOnRepositoryCall() throws Exception {
-        // Given
-        ChecklistBatch inputBatch = new ChecklistBatch();
-        inputBatch.setId(1L); 
-        when(currentTaskRunRepository.findBySysId(anyLong())).thenThrow(new RuntimeException("Database error"));
-
-        // When
-        checklistBatchProcessor.process(inputBatch);
-
-        // Then (exception is expected, no assertions needed)
+        FundRule fundRuleMock = Mockito.mock(FundRule.class);
+        
+        // This should throw an exception due to exceeding hours
+        FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
     }
 }
