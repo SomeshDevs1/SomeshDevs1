@@ -1,72 +1,74 @@
-import static org.junit.Assert.*;
-import org.junit.Test;
-import org.mockito.Mockito;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.mail.*;
+import javax.mail.internet.*;
+import java.util.Properties;
 
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+public class YourServiceImpl {
 
-public class FundPlanUtilsTest {
+    private LinkBatchServiceImpl linkBatchService;  // Assuming this is how you access the other service
 
-    @Test
-    public void testGetCutoff_SuccessCase() throws Exception {
-        // Mock inputs
-        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
-        String inputTimeStr = "12:00:00";  // Example valid time
-        String countryCode = "UK";
+    // Method to process the list and send email based on status
+    public void checkStatusAndSendEmail() {
+        // Fetch the list from linkBatchService
+        List<YourObject> list = linkBatchService.getYourList(); // Assuming this method fetches your list
 
-        // Create a mock FundRule object and set behavior
-        FundRule fundRuleMock = Mockito.mock(FundRule.class);
-        Mockito.when(fundRuleMock.getCutOffMoreThanOneDay()).thenReturn(1);
+        // Check if all statuses are "completed"
+        boolean allCompleted = list.stream()
+            .allMatch(item -> "completed".equalsIgnoreCase(item.getStatus())); // Modify according to how you get the status
 
-        // Call the method
-        Timestamp result = FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
+        // Set email content
+        String subject = allCompleted ? "Status OK" : "Status KO";
+        String htmlMessage = generateHtmlMessage(allCompleted);
 
-        // Validate result - This depends on the expected output.
-        assertNotNull(result);
-        // You can use SimpleDateFormat to validate the output date format if necessary
+        // Send email
+        sendEmail("recipient@example.com", subject, htmlMessage);
     }
 
-    @Test(expected = LinkServiceException.class)
-    public void testGetCutoff_InvalidTimeString() throws Exception {
-        // Mock inputs with invalid time string
-        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
-        String invalidInputTimeStr = "invalidTimeString";
-        String countryCode = "UK";
-
-        FundRule fundRuleMock = Mockito.mock(FundRule.class);
-        
-        // This should throw an exception due to invalid time format
-        FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, invalidInputTimeStr, countryCode);
+    // Method to generate HTML message
+    private String generateHtmlMessage(boolean allCompleted) {
+        if (allCompleted) {
+            return "<html><body><h1>All tasks are completed successfully!</h1></body></html>";
+        } else {
+            return "<html><body><h1>Some tasks failed. Please check!</h1></body></html>";
+        }
     }
 
-    @Test
-    public void testGetCutoff_ZeroDaysCutoff() throws Exception {
-        // Test the scenario where fundRule.getCutOffMoreThanOneDay() returns 0
-        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
-        String inputTimeStr = "12:00:00";
-        String countryCode = "UK";
+    // Method to send email
+    private void sendEmail(String to, String subject, String htmlMessage) {
+        // Assuming you have mail properties set up
+        String from = "sender@example.com";
+        String host = "smtp.example.com"; // Replace with your SMTP server
 
-        FundRule fundRuleMock = Mockito.mock(FundRule.class);
-        Mockito.when(fundRuleMock.getCutOffMoreThanOneDay()).thenReturn(0);
+        Properties properties = System.getProperties();
+        properties.setProperty("mail.smtp.host", host);
 
-        // Call the method
-        Timestamp result = FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
+        Session session = Session.getDefaultInstance(properties);
 
-        // Validate the result for this case
-        assertNotNull(result);
+        try {
+            MimeMessage message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(from));
+            message.addRecipient(Message.RecipientType.TO, new InternetAddress(to));
+            message.setSubject(subject);
+            message.setContent(htmlMessage, "text/html");
+
+            Transport.send(message);
+            System.out.println("Email Sent Successfully");
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+// Sample class representing your object in the list
+class YourObject {
+    private String status;
+
+    public String getStatus() {
+        return status;
     }
 
-    @Test(expected = LinkServiceException.class)
-    public void testGetCutoff_HoursExceededException() throws Exception {
-        // Test for exception when hours exceed limit
-        Timestamp deliveryPeriod = new Timestamp(System.currentTimeMillis());
-        String inputTimeStr = "24:01:00";  // Invalid hours
-        String countryCode = "FR";
-
-        FundRule fundRuleMock = Mockito.mock(FundRule.class);
-        
-        // This should throw an exception due to exceeding hours
-        FundPlanUtils.getCutoff(fundRuleMock, deliveryPeriod, inputTimeStr, countryCode);
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
