@@ -1,5 +1,5 @@
 http://username:password@www.example.com:8080/path/to/resource?query=example&key=value#section
-
+https://username:password@www.example.com:8080/path/to/resource?query1=value1&query2=value2#section
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
