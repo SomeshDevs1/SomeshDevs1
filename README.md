@@ -1,50 +1,38 @@
-http://username:password@www.example.com:8080/path/to/resource?query=example&key=value#section
-https://username:password@www.example.com:8080/path/to/resource?query1=value1&query2=value2#section
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.web.util.UriComponentsBuilder;
-
-import java.util.Arrays;
-import java.util.List;
-
-import static org.mockito.Mockito.*;
-import static org.junit.Assert.*;
-
-@RunWith(MockitoJUnitRunner.class)
-public class CallReportRestServiceImplTest {
-
-    @Mock
-    private OAuth2RestTemplate restTemplate;
-
-    @InjectMocks
-    private CallReportRestServiceImpl callReportRestService;
-
-    @Before
-    public void setUp() {
-        // Setup base URL for the service
-        callReportRestService.baseurlServices = "http://example.com/api";
-    }
-
-    @Test
-    public void testConsumeReportApi_success() {
-        // Arrange
-        List<ReportData> reportDatas = Arrays.asList(new ReportData(), new ReportData()); // Example ReportData list
-        String expectedResponse = "Success";
-
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl("http://example.com/api");
+@Override
+public String generateBatchStatus() throws LinkReportingException, LinkBatchException {
+    Date currentDate = DateUtils.getCurrentDate();
+    String formattedDate = DateUtils.dateToStringWithMarker(currentDate);
+    List<BatchJobDetailsDTO> batchJob = linkBatchServiceImpl.findBatchJobDetails();
+    
+    StringBuilder msgBody = new StringBuilder();
+    msgBody.append("<html> <h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4> <br>");
+    msgBody.append("<style> table { border: 1px solid #dddddd; border-collapse: collapse; text-align: left; border: 1px solid #dddddd; border-collapse: collapse;} </style>");
+    msgBody.append("<table cellpadding='10' style='background-color: #eeeeee;'>");
+    msgBody.append(LinkConstant.TABLE_DATA_NO_WRAP.append("<th> Job Name </th><th> Job Execution </th><th> Status </th><th> Start Time </th><th> End Time </th>"));
+    msgBody.append("</tr>");
+    
+    boolean allCompleted = true;  // This will track if all jobs are completed
+    
+    batchJob.stream().forEach(item -> {
+        msgBody.append("<tr>");
+        msgBody.append("<td>").append(item.getJobName()).append("</td>");
+        msgBody.append("<td>").append(item.getJobExecutionId()).append("</td>");
+        msgBody.append("<td>").append(item.getStatus()).append("</td>");
+        msgBody.append("<td>").append(item.getStartTime()).append("</td>");
+        msgBody.append("<td>").append(item.getEndTime()).append("</td>");
+        msgBody.append("</tr>");
         
-        // Mock the restTemplate behavior
-        when(restTemplate.postForObject(builder.toUriString(), reportDatas, String.class)).thenReturn(expectedResponse);
-
-        // Act
-        String actualResponse = callReportRestService.consumeReportApi(reportDatas);
-
-        // Assert
-        assertEquals(expectedResponse, actualResponse);
-        verify(restTemplate, times(1)).postForObject(builder.toUriString(), reportDatas, String.class);
-    }
+        if (!"COMPLETED".equals(item.getStatus())) {
+            allCompleted = false;  // If any job is not completed, set this flag to false
+        }
+    });
+    
+    msgBody.append("</table>");
+    msgBody.append("</html>");
+    
+    String subject = allCompleted ? "[LINK] Batch Status for " + formattedDate + " OK" : "[LINK] Batch Status for " + formattedDate + " KO";
+    
+    emailService.sendBatchJobFailedMail(subject, msgBody.toString());
+    
+    return null;
 }
