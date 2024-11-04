@@ -1,0 +1,107 @@
+StringBuilder msgBody = new StringBuilder();
+msgBody.append("<html>")
+       .append("<h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4><br>")
+       .append("<style> table { border: 1px solid #dddddd; border-collapse: collapse; text-align: left; } </style>");
+
+// First table: Batch jobs
+msgBody.append("<h4>Batch Job Status</h4>")
+       .append("<table cellpadding='10' style='background-color: #eeeeee;'>")
+       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+for (BatchJobDetailsDTO item : batchJob) {
+    msgBody.append("<tr>")
+           .append("<td>").append(item.getJobName()).append("</td>")
+           .append("<td>").append(item.getJobExecutionId()).append("</td>")
+           .append("<td>").append(item.getStatus()).append("</td>")
+           .append("<td>").append(item.getStartTime()).append("</td>")
+           .append("<td>").append(item.getEndTime()).append("</td>")
+           .append("</tr>");
+}
+msgBody.append("</table><br>");
+
+// Second table: Additional jobs from LinkBatchServiceImpl
+msgBody.append("<h4>Additional Job Status (KPI Report)</h4>")
+       .append("<table cellpadding='10' style='background-color: #eeeeee;'>")
+       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+List<BatchJobDetailsDTO> additionalJobs = linkBatchService.getAdditionalJobs();
+for (BatchJobDetailsDTO item : additionalJobs) {
+    msgBody.append("<tr>")
+           .append("<td>").append(item.getJobName()).append("</td>")
+           .append("<td>").append(item.getJobExecutionId()).append("</td>")
+           .append("<td>").append(item.getStatus()).append("</td>")
+           .append("<td>").append(item.getStartTime()).append("</td>")
+           .append("<td>").append(item.getEndTime()).append("</td>")
+           .append("</tr>");
+}
+msgBody.append("</table><br>");
+
+// Define specific jobs including additional jobs from LinkBatchServiceImpl
+Set<String> specificJobs = new HashSet<>(Arrays.asList(
+    "clearMonitoringFund", 
+    "populateChecklistWithCwdTaskStep", 
+    "populateChecklistWithTbcTaskStep", 
+    "GenerateChecklist"
+));
+for (BatchJobDetailsDTO job : additionalJobs) {
+    specificJobs.add(job.getJobName());
+}
+
+// Evaluate statuses for the batch jobs table
+boolean allBatchJobsCompleted = true;
+boolean specificBatchJobsCompleted = true;
+boolean otherBatchJobsCompleted = true;
+
+for (BatchJobDetailsDTO item : batchJob) {
+    if (!"COMPLETED".equals(item.getStatus())) {
+        allBatchJobsCompleted = false;
+        if (specificJobs.contains(item.getJobName())) {
+            specificBatchJobsCompleted = false;
+        } else {
+            otherBatchJobsCompleted = false;
+        }
+    }
+}
+
+// Determine the status for the batch jobs table
+String batchJobsStatus;
+if (allBatchJobsCompleted) {
+    batchJobsStatus = "OK";
+} else if (otherBatchJobsCompleted && !specificBatchJobsCompleted) {
+    batchJobsStatus = "AMBER";
+} else {
+    batchJobsStatus = "KO";
+}
+msgBody.append("<br><strong>Batch Job Table Status: ").append(batchJobsStatus).append("</strong><br>");
+
+// Evaluate statuses for the additional jobs table (KPI report)
+boolean allAdditionalJobsCompleted = true;
+for (BatchJobDetailsDTO item : additionalJobs) {
+    if (!"COMPLETED".equals(item.getStatus())) {
+        allAdditionalJobsCompleted = false;
+        break;
+    }
+}
+String additionalJobsStatus = allAdditionalJobsCompleted ? "OK" : "KO";
+msgBody.append("<br><strong>KPI Report Table Status: ").append(additionalJobsStatus).append("</strong><br><br>");
+
+// Determine the overall batch status based on all conditions
+boolean allJobsCompleted = allBatchJobsCompleted && allAdditionalJobsCompleted;
+boolean specificJobsCompleted = specificBatchJobsCompleted && allAdditionalJobsCompleted;
+boolean otherJobsCompleted = otherBatchJobsCompleted;
+
+String overallStatus;
+if (allJobsCompleted) {
+    overallStatus = "OK";
+} else if (otherJobsCompleted && !specificJobsCompleted) {
+    overallStatus = "AMBER";
+} else {
+    overallStatus = "KO";
+}
+msgBody.append("<strong>Batch Overall Status: ").append(overallStatus).append("</strong>");
+msgBody.append("</html>");
+
+// Construct the email subject
+String subject = String.format("[LINK] Batch Status for %s %s", formattedDate, overallStatus);
+emailService.sendBatchJobFailedMail(subject, msgBody.toString());
+
+return null;
+
