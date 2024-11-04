@@ -92,3 +92,16 @@ String subject = String.format("[LINK] Batch Status for %s %s", formattedDate, o
 emailService.sendBatchJobFailedMail(subject, msgBody.toString());
 
 return null;
+
+
+
+msgBody.append("<html>")
+       .append("<h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4><br>")
+       .append("<style>")
+       .append("table { border: 1px solid black; border-collapse: collapse; width: 100%; background-color: white; } ") // Set table background to white and border color to black
+       .append("th { background-color: #eeeeee; border: 1px solid black; padding: 10px; } ") // Set header background to grey and border to black
+       .append("td { border: 1px solid black; padding: 10px; } ") // Set data cell border to black
+       .append("</style>")
+       .append("<table>")
+       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+
