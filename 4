@@ -1,0 +1,91 @@
+StringBuilder msgBody = new StringBuilder();
+msgBody.append("<html>")
+       .append("<h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4><br>")
+       .append("<style> table { border: 1px solid black; border-collapse: collapse; text-align: left; } ")
+       .append("th { background-color: #eeeeee; color: black; } ")
+       .append("td, th { border: 1px solid black; padding: 10px; }</style>");
+
+// Define the 9 batch jobs and 4 specific jobs
+Set<String> batchJobsSet = new HashSet<>(Arrays.asList("job1", "job2", "job3", "job4", "job5", "job6", "job7", "job8", "job9"));
+Set<String> specificJobsSet = new HashSet<>(Arrays.asList("clearMonitoringFund", "populateChecklistWithCwdTaskStep", "populateChecklistWithTbcTaskStep", "GenerateChecklist"));
+
+// Flags to track statuses
+boolean allBatchJobsCompleted = true;
+boolean allSpecificJobsCompleted = true;
+boolean allKpiJobsCompleted = true;
+
+// Batch Jobs Table
+msgBody.append("<h4>Batch Job Status</h4>")
+       .append("<table>")
+       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+
+for (BatchJobDetailsDTO item : batchJob) {
+    msgBody.append("<tr>")
+           .append("<td>").append(item.getJobName()).append("</td>")
+           .append("<td>").append(item.getJobExecutionId()).append("</td>")
+           .append("<td>").append(item.getStatus()).append("</td>")
+           .append("<td>").append(item.getStartTime()).append("</td>")
+           .append("<td>").append(item.getEndTime()).append("</td>")
+           .append("</tr>");
+
+    // Check if all 9 batch jobs are completed
+    if (batchJobsSet.contains(item.getJobName()) && !"COMPLETED".equals(item.getStatus())) {
+        allBatchJobsCompleted = false;
+    }
+    
+    // Check specific job status within the batch jobs
+    if (specificJobsSet.contains(item.getJobName()) && !"COMPLETED".equals(item.getStatus())) {
+        allSpecificJobsCompleted = false;
+    }
+}
+msgBody.append("</table><br>");
+
+// Determine Batch Jobs Table Status
+String batchJobsStatus;
+if (allBatchJobsCompleted) {
+    batchJobsStatus = allSpecificJobsCompleted ? "OK" : "AMBER";
+} else {
+    batchJobsStatus = "KO";
+}
+msgBody.append("<strong>Batch Job Table Status: ").append(batchJobsStatus).append("</strong><br><br>");
+
+// KPI Reports Table
+msgBody.append("<h4>KPI Report Status</h4>")
+       .append("<table>")
+       .append("<tr><th>File Name</th><th>Status</th><th>Time Created</th><th>Time Completed</th></tr>");
+
+for (BatchReportStatus report : kpiReports) {
+    msgBody.append("<tr>")
+           .append("<td>").append(report.getFileName()).append("</td>")
+           .append("<td>").append(report.getStatus()).append("</td>")
+           .append("<td>").append(report.getTimeCreated()).append("</td>")
+           .append("<td>").append(report.getTimeCompleted()).append("</td>")
+           .append("</tr>");
+
+    // Check if each KPI job is completed
+    if (!"COMPLETED".equals(report.getStatus())) {
+        allKpiJobsCompleted = false;
+    }
+}
+msgBody.append("</table><br>");
+
+// Determine KPI Report Table Status
+String kpiReportStatus = allKpiJobsCompleted ? "OK" : "KO";
+msgBody.append("<strong>KPI Report Table Status: ").append(kpiReportStatus).append("</strong><br><br>");
+
+// Determine Final Overall Status
+String overallStatus;
+if (allBatchJobsCompleted) {
+    overallStatus = (allSpecificJobsCompleted && allKpiJobsCompleted) ? "OK" : "AMBER";
+} else {
+    overallStatus = "KO";
+}
+
+msgBody.append("<strong>Batch Overall Status: ").append(overallStatus).append("</strong>");
+msgBody.append("</html>");
+
+// Construct the email subject
+String subject = String.format("[LINK] Batch Status for %s %s", formattedDate, overallStatus);
+emailService.sendBatchJobFailedMail(subject, msgBody.toString());
+
+return null;
