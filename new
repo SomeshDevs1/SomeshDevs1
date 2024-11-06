@@ -1,42 +1,69 @@
-import com.sgss.ast.fvs.vap.link.followup.exception.GlobalExceptionHandler;
-import com.sgss.ast.fvs.vap.link.followup.exception.InputException;
+package com.sgss.ast.fvs.vap.link.followup.entities.repo;
+
+import com.sgss.ast.fvs.vap.link.followup.entities.CommentList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.jdbc.Sql;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.Arrays;
+import java.util.List;
 
-@WebMvcTest(GlobalExceptionHandler.class)
-@ContextConfiguration(classes = {GlobalExceptionHandler.class})
-public class GlobalExceptionHandlerTest {
+import static org.junit.jupiter.api.Assertions.*;
+
+@DataJpaTest
+public class CommentListRepositoryTest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private CommentListRepository commentListRepository;
+
+    private CommentList comment1;
+    private CommentList comment2;
+    private CommentList comment3;
 
     @BeforeEach
-    public void setup() {
-        // No setup required as we are only testing exception handling
+    void setUp() {
+        // Set up test data before each test method
+        comment1 = new CommentList();
+        comment1.setIsActive(true);
+        comment1.setBusiness("Business1");
+
+        comment2 = new CommentList();
+        comment2.setIsActive(true);
+        comment2.setBusiness("Business2");
+
+        comment3 = new CommentList();
+        comment3.setIsActive(false);  // This one will not be selected in the test
+        comment3.setBusiness("Business1");
+
+        // Save the entities to the repository
+        commentListRepository.saveAll(Arrays.asList(comment1, comment2, comment3));
     }
 
     @Test
-    public void testHandleInputException() throws Exception {
-        // Define a test controller to simulate an endpoint that throws InputException
-        mockMvc.perform(get("/test")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .requestAttr("exception", new InputException("Invalid input")))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Invalid input"));
+    void testFindByBusinessAndIsActive() {
+        // Test the findByBusinessAndIsActive method
+        List<CommentList> activeCommentsForBusiness1 = commentListRepository.findByBusinessAndIsActive("Business1");
+
+        // Assert that the returned list contains only the active comment for Business1
+        assertNotNull(activeCommentsForBusiness1);
+        assertEquals(1, activeCommentsForBusiness1.size());
+        assertEquals("Business1", activeCommentsForBusiness1.get(0).getBusiness());
+        assertTrue(activeCommentsForBusiness1.get(0).getIsActive());
     }
+
+    @Test
+    void testFindByAreasAndIsActive() {
+        // Test the findByAreasAndIsActive method
+        List<CommentList> activeCommentsForBusinesses = commentListRepository.findByAreasAndIsActive(Arrays.asList("Business1", "Business2"));
+
+        // Assert that both active comments for Business1 and Business2 are returned
+        assertNotNull(activeCommentsForBusinesses);
+        assertEquals(2, activeCommentsForBusinesses.size());
+
+        // Check if the businesses returned match
+        assertTrue(activeCommentsForBusinesses.stream().anyMatch(c -> "Business1".equals(c.getBusiness()) && c.getIsActive()));
+        assertTrue(activeCommentsForBusinesses.stream().anyMatch(c -> "Business2".equals(c.getBusiness()) && c.getIsActive()));
+    }
+}
