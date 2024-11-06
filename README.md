@@ -4,11 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 
@@ -17,7 +16,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-@SpringBootTest
 public class CallReportRestServiceImplTest {
 
     @Mock
@@ -26,15 +24,19 @@ public class CallReportRestServiceImplTest {
     @InjectMocks
     private CallReportRestServiceImpl callReportRestServiceImpl;
 
-    @Value("${vap.report.service.adress}")
-    private String baseUrlServices;
-
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        callReportRestServiceImpl = new CallReportRestServiceImpl();
-        callReportRestServiceImpl.restTemplate = restTemplate;
-        callReportRestServiceImpl.baseUrlServices = baseUrlServices;
+
+        // Use reflection to set the private baseUrlServices field
+        Field baseUrlField = CallReportRestServiceImpl.class.getDeclaredField("baseUrlServices");
+        baseUrlField.setAccessible(true);
+        baseUrlField.set(callReportRestServiceImpl, "http://mocked-base-url");
+
+        // Use reflection to set the private restTemplate field
+        Field restTemplateField = CallReportRestServiceImpl.class.getDeclaredField("restTemplate");
+        restTemplateField.setAccessible(true);
+        restTemplateField.set(callReportRestServiceImpl, restTemplate);
     }
 
     @Test
@@ -42,9 +44,6 @@ public class CallReportRestServiceImplTest {
         // Arrange
         List<ReportData> reportDatas = Collections.emptyList(); // Mock empty list for simplicity
         String expectedResponse = "Mocked Response";
-
-        // Mock UriComponentsBuilder
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrlServices);
 
         // Mock the restTemplate response
         when(restTemplate.postForObject(anyString(), eq(reportDatas), eq(String.class))).thenReturn(expectedResponse);
