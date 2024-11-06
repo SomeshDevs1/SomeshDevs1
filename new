@@ -1,69 +1,83 @@
-package com.sgss.ast.fvs.vap.link.followup.entities.repo;
+package com.sgss.ast.fvs.vap.link.followup.entities;
 
-import com.sgss.ast.fvs.vap.link.followup.entities.CommentList;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.test.context.jdbc.Sql;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-public class CommentListRepositoryTest {
+public class AuditListenerTest {
 
     @Autowired
-    private CommentListRepository commentListRepository;
+    private PersistentObjectRepository persistentObjectRepository;
 
-    private CommentList comment1;
-    private CommentList comment2;
-    private CommentList comment3;
+    private PersistentObject persistentObject;
 
     @BeforeEach
     void setUp() {
-        // Set up test data before each test method
-        comment1 = new CommentList();
-        comment1.setIsActive(true);
-        comment1.setBusiness("Business1");
-
-        comment2 = new CommentList();
-        comment2.setIsActive(true);
-        comment2.setBusiness("Business2");
-
-        comment3 = new CommentList();
-        comment3.setIsActive(false);  // This one will not be selected in the test
-        comment3.setBusiness("Business1");
-
-        // Save the entities to the repository
-        commentListRepository.saveAll(Arrays.asList(comment1, comment2, comment3));
+        // Set up the PersistentObject before each test
+        persistentObject = new PersistentObject();
+        persistentObject.setId(1L);
+        // Initially, we don't set the dates because the listener should handle this
     }
 
     @Test
-    void testFindByBusinessAndIsActive() {
-        // Test the findByBusinessAndIsActive method
-        List<CommentList> activeCommentsForBusiness1 = commentListRepository.findByBusinessAndIsActive("Business1");
+    void testBeforeCreateOperation() {
+        // Save the PersistentObject, which should trigger the @PrePersist method
+        persistentObjectRepository.save(persistentObject);
 
-        // Assert that the returned list contains only the active comment for Business1
-        assertNotNull(activeCommentsForBusiness1);
-        assertEquals(1, activeCommentsForBusiness1.size());
-        assertEquals("Business1", activeCommentsForBusiness1.get(0).getBusiness());
-        assertTrue(activeCommentsForBusiness1.get(0).getIsActive());
+        // Retrieve the entity from the database
+        PersistentObject savedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+
+        // Assert that the dateCreated and dateModified are set (should be the same when the entity is created)
+        assertNotNull(savedObject);
+        assertNotNull(savedObject.getDateCreated());
+        assertNotNull(savedObject.getDateModified());
+        assertEquals(savedObject.getDateCreated(), savedObject.getDateModified(), "DateCreated and DateModified should be the same when created");
     }
 
     @Test
-    void testFindByAreasAndIsActive() {
-        // Test the findByAreasAndIsActive method
-        List<CommentList> activeCommentsForBusinesses = commentListRepository.findByAreasAndIsActive(Arrays.asList("Business1", "Business2"));
+    void testBeforeUpdateOperation() {
+        // Save the PersistentObject first
+        persistentObjectRepository.save(persistentObject);
 
-        // Assert that both active comments for Business1 and Business2 are returned
-        assertNotNull(activeCommentsForBusinesses);
-        assertEquals(2, activeCommentsForBusinesses.size());
+        // Store the initial dateModified
+        Date initialDateModified = persistentObject.getDateModified();
 
-        // Check if the businesses returned match
-        assertTrue(activeCommentsForBusinesses.stream().anyMatch(c -> "Business1".equals(c.getBusiness()) && c.getIsActive()));
-        assertTrue(activeCommentsForBusinesses.stream().anyMatch(c -> "Business2".equals(c.getBusiness()) && c.getIsActive()));
+        // Modify the object
+        persistentObject.setId(2L); // Example of modification
+        persistentObjectRepository.save(persistentObject);
+
+        // Retrieve the updated entity
+        PersistentObject updatedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+
+        // Assert that dateModified has been updated (but dateCreated remains unchanged)
+        assertNotNull(updatedObject);
+        assertNotEquals(initialDateModified, updatedObject.getDateModified(), "DateModified should be updated on update");
+        assertEquals(updatedObject.getDateCreated(), initialDateModified, "DateCreated should not be modified on update");
+    }
+
+    @Test
+    void testBeforeRemoveOperation() {
+        // Save the PersistentObject first
+        persistentObjectRepository.save(persistentObject);
+
+        // Store the initial dateModified
+        Date initialDateModified = persistentObject.getDateModified();
+
+        // Remove the object
+        persistentObjectRepository.delete(persistentObject);
+
+        // Retrieve the deleted entity (this should be null because it's deleted)
+        PersistentObject removedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+
+        // The entity is deleted, but we want to ensure dateModified was set before removal (in the listener)
+        assertNull(removedObject);
+        // Optionally, you can check the state before removal if your repository supports soft deletes, 
+        // but since it’s removed, there’s no further verification for dateModified after deletion.
     }
 }
