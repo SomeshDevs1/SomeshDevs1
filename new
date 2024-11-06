@@ -1,107 +1,109 @@
-StringBuilder msgBody = new StringBuilder();
-msgBody.append("<html>")
-       .append("<h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4><br>")
-       .append("<style> table { border: 1px solid #dddddd; border-collapse: collapse; text-align: left; } </style>")
-       .append("<table cellpadding='10' style='background-color: #eeeeee;'>")
-       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
-// First table: Batch jobs
-for (BatchJobDetailsDTO item : batchJob) {
-    msgBody.append("<tr>")
-           .append("<td>").append(item.getJobName()).append("</td>")
-           .append("<td>").append(item.getJobExecutionId()).append("</td>")
-           .append("<td>").append(item.getStatus()).append("</td>")
-           .append("<td>").append(item.getStartTime()).append("</td>")
-           .append("<td>").append(item.getEndTime()).append("</td>")
-           .append("</tr>");
-}
-msgBody.append("</table><br>");
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
-// Second table: Additional jobs from LinkBatchServiceImpl
-msgBody.append("<h4> Additional Job Status </h4><table cellpadding='10' style='background-color: #eeeeee;'>")
-       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
+@ExtendWith(MockitoExtension.class)
+public class ChecklistServiceTest {
 
-// Assuming you have a method to retrieve additional jobs from LinkBatchServiceImpl
-List<BatchJobDetailsDTO> additionalJobs = linkBatchService.getAdditionalJobs();
-for (BatchJobDetailsDTO item : additionalJobs) {
-    msgBody.append("<tr>")
-           .append("<td>").append(item.getJobName()).append("</td>")
-           .append("<td>").append(item.getJobExecutionId()).append("</td>")
-           .append("<td>").append(item.getStatus()).append("</td>")
-           .append("<td>").append(item.getStartTime()).append("</td>")
-           .append("<td>").append(item.getEndTime()).append("</td>")
-           .append("</tr>");
-}
-msgBody.append("</table><br>");
+    @Mock
+    private VSIRepo vsiRepo;
 
-// Define the specific jobs, including the additional 4 jobs
-Set<String> specificJobs = new HashSet<>(Arrays.asList(
-    "clearMonitoringFund", 
-    "populateChecklistWithCwdTaskStep", 
-    "populateChecklistWithTbcTaskStep", 
-    "GenerateChecklist",
-    // Add the new specific jobs here
-    "newJob1", 
-    "newJob2", 
-    "newJob3", 
-    "newJob4"
-));
+    @Mock
+    private CheckListService checkListService;
 
-boolean allJobsCompleted = true;
-boolean specificJobsCompleted = true;  
-boolean otherJobsCompleted = true;
+    @InjectMocks
+    private ChecklistService checklistService;
 
-for (BatchJobDetailsDTO item : batchJob) {
-    if (!"COMPLETED".equals(item.getStatus())) {
-        allJobsCompleted = false;
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChecklistServiceTest.class);
 
-        if (specificJobs.contains(item.getJobName())) {
-            specificJobsCompleted = false;
-        } else {
-            otherJobsCompleted = false;
-        }
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    public void testGenerateChecklistFollowup_Success() throws LinkServiceException {
+        List<Long> vsildList = List.of(1L, 2L);
+        ValuationScheduleItem vsiMock = mock(ValuationScheduleItem.class);
+
+        when(vsiRepo.findById(any(Long.class))).thenReturn(Optional.of(vsiMock));
+        when(vsiMock.isChecklist()).thenReturn(true);
+        when(checklistService.generateCheckList(anyLong())).thenReturn(List.of(1, 2));
+        
+        checklistService.generateChecklistFollowup(vsildList);
+
+        verify(vsiRepo, times(2)).findById(any(Long.class));
+        verify(checklistService, times(2)).generateCheckList(anyLong());
+    }
+
+    @Test
+    public void testGenerateChecklistFollowup_NoChecklist() throws LinkServiceException {
+        List<Long> vsildList = List.of(1L, 2L);
+        ValuationScheduleItem vsiMock = mock(ValuationScheduleItem.class);
+
+        when(vsiRepo.findById(any(Long.class))).thenReturn(Optional.of(vsiMock));
+        when(vsiMock.isChecklist()).thenReturn(false);
+
+        checklistService.generateChecklistFollowup(vsildList);
+
+        verify(vsiRepo, times(2)).findById(any(Long.class));
+        verify(checklistService, never()).generateCheckList(anyLong());
+    }
+
+    @Test
+    public void testGenerateChecklistFollowup_Exception() {
+        List<Long> vsildList = List.of(1L);
+
+        when(vsiRepo.findById(any(Long.class))).thenThrow(new LinkServiceException("Database error"));
+
+        assertThrows(LinkServiceException.class, () -> checklistService.generateChecklistFollowup(vsildList));
+    }
+
+    @Test
+    public void testGenerateGermanyChecklistFollowup_Success() throws LinkServiceException {
+        List<Long> vsildList = List.of(1L, 2L);
+        String fundGroupName = "FundGroup";
+
+        doNothing().when(checkListService).generateChecklistForGermany(vsildList, fundGroupName);
+        doNothing().when(vsiRepo).updateChecklistAndClosedStatus(vsildList);
+
+        checklistService.generateGermanyChecklistFollowup(vsildList, fundGroupName);
+
+        verify(checkListService, times(1)).generateChecklistForGermany(vsildList, fundGroupName);
+        verify(vsiRepo, times(1)).updateChecklistAndClosedStatus(vsildList);
+    }
+
+    @Test
+    public void testGenerateGermanyChecklistFollowup_EmptyList() throws LinkServiceException {
+        List<Long> vsildList = Collections.emptyList();
+        String fundGroupName = "FundGroup";
+
+        checklistService.generateGermanyChecklistFollowup(vsildList, fundGroupName);
+
+        verify(checkListService, never()).generateChecklistForGermany(anyList(), anyString());
+        verify(vsiRepo, never()).updateChecklistAndClosedStatus(anyList());
+    }
+
+    @Test
+    public void testGenerateGermanyChecklistFollowup_Exception() {
+        List<Long> vsildList = List.of(1L, 2L);
+        String fundGroupName = "FundGroup";
+
+        doThrow(new RuntimeException("Service error")).when(checkListService).generateChecklistForGermany(vsildList, fundGroupName);
+
+        assertThrows(LinkServiceException.class, () -> checklistService.generateGermanyChecklistFollowup(vsildList, fundGroupName));
     }
 }
-
-// Evaluate additional jobs for specific job status
-for (BatchJobDetailsDTO item : additionalJobs) {
-    if (!"COMPLETED".equals(item.getStatus())) {
-        allJobsCompleted = false;
-
-        if (specificJobs.contains(item.getJobName())) {
-            specificJobsCompleted = false;
-        } else {
-            otherJobsCompleted = false;
-        }
-    }
-}
-
-String overallStatus;
-if (allJobsCompleted) {
-    overallStatus = "OK";
-} else if (otherJobsCompleted && !specificJobsCompleted) {
-    overallStatus = "AMBER";
-} else {
-    overallStatus = "KO";
-}
-
-msgBody.append("<br><br><strong>Batch Overall Status: ").append(overallStatus).append("</strong>");
-msgBody.append("</html>");
-
-String subject = String.format("[LINK] Batch Status for %s %s", formattedDate, overallStatus);
-emailService.sendBatchJobFailedMail(subject, msgBody.toString());
-
-return null;
-
-
-
-msgBody.append("<html>")
-       .append("<h4> Link Batch Status for Working Date: ").append(formattedDate).append(" </h4><br>")
-       .append("<style>")
-       .append("table { border: 1px solid black; border-collapse: collapse; width: 100%; background-color: white; } ") // Set table background to white and border color to black
-       .append("th { background-color: #eeeeee; border: 1px solid black; padding: 10px; } ") // Set header background to grey and border to black
-       .append("td { border: 1px solid black; padding: 10px; } ") // Set data cell border to black
-       .append("</style>")
-       .append("<table>")
-       .append("<tr><th>Job Name</th><th>Job Execution</th><th>Status</th><th>Start Time</th><th>End Time</th></tr>");
-
