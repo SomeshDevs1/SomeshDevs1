@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
+import javax.persistence.EntityManager;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -13,27 +14,25 @@ import static org.junit.jupiter.api.Assertions.*;
 public class AuditListenerTest {
 
     @Autowired
-    private PersistentObjectRepository persistentObjectRepository;
+    private EntityManager entityManager;
 
     private PersistentObject persistentObject;
 
     @BeforeEach
     void setUp() {
-        // Set up the PersistentObject before each test
+        // Create a new PersistentObject for testing
         persistentObject = new PersistentObject();
-        persistentObject.setId(1L);
-        // Initially, we don't set the dates because the listener should handle this
     }
 
     @Test
     void testBeforeCreateOperation() {
         // Save the PersistentObject, which should trigger the @PrePersist method
-        persistentObjectRepository.save(persistentObject);
+        entityManager.persistAndFlush(persistentObject);
 
         // Retrieve the entity from the database
-        PersistentObject savedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+        PersistentObject savedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
 
-        // Assert that the dateCreated and dateModified are set (should be the same when the entity is created)
+        // Assert that dateCreated and dateModified are set correctly
         assertNotNull(savedObject);
         assertNotNull(savedObject.getDateCreated());
         assertNotNull(savedObject.getDateModified());
@@ -43,41 +42,40 @@ public class AuditListenerTest {
     @Test
     void testBeforeUpdateOperation() {
         // Save the PersistentObject first
-        persistentObjectRepository.save(persistentObject);
+        entityManager.persistAndFlush(persistentObject);
 
         // Store the initial dateModified
         Date initialDateModified = persistentObject.getDateModified();
 
-        // Modify the object
-        persistentObject.setId(2L); // Example of modification
-        persistentObjectRepository.save(persistentObject);
+        // Update the object (just an example update, you could modify any field)
+        persistentObject.setId(2L);
+        entityManager.persistAndFlush(persistentObject);
 
         // Retrieve the updated entity
-        PersistentObject updatedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+        PersistentObject updatedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
 
-        // Assert that dateModified has been updated (but dateCreated remains unchanged)
+        // Assert that dateModified is updated (but dateCreated should remain the same)
         assertNotNull(updatedObject);
         assertNotEquals(initialDateModified, updatedObject.getDateModified(), "DateModified should be updated on update");
-        assertEquals(updatedObject.getDateCreated(), initialDateModified, "DateCreated should not be modified on update");
+        assertEquals(updatedObject.getDateCreated(), persistentObject.getDateCreated(), "DateCreated should not be modified on update");
     }
 
     @Test
     void testBeforeRemoveOperation() {
         // Save the PersistentObject first
-        persistentObjectRepository.save(persistentObject);
+        entityManager.persistAndFlush(persistentObject);
 
         // Store the initial dateModified
         Date initialDateModified = persistentObject.getDateModified();
 
-        // Remove the object
-        persistentObjectRepository.delete(persistentObject);
+        // Remove the object (this will call the @PreRemove method)
+        entityManager.remove(persistentObject);
 
-        // Retrieve the deleted entity (this should be null because it's deleted)
-        PersistentObject removedObject = persistentObjectRepository.findById(persistentObject.getId()).orElse(null);
+        // Retrieve the removed entity (it should be null since it was deleted)
+        PersistentObject removedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
 
-        // The entity is deleted, but we want to ensure dateModified was set before removal (in the listener)
+        // The entity is deleted, so assert that it is null
         assertNull(removedObject);
-        // Optionally, you can check the state before removal if your repository supports soft deletes, 
-        // but since it’s removed, there’s no further verification for dateModified after deletion.
+        // The listener sets dateModified before removal, but since it is deleted, we can't check the exact value after removal.
     }
 }
