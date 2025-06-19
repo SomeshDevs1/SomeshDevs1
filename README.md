@@ -1,60 +1,35 @@
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.reactive.function.client.ServletOAuth2AuthorizedClientExchangeFilterFunction;
-import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
-import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientProvider;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
-import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.beans.factory.annotation.Value;
+@Override
+public UserDto getUserDetails(Authentication authentication, Integer id) throws VAPServiceException {
+    try {
+        OAuth2AuthenticatedPrincipal user = (OAuth2AuthenticatedPrincipal) authentication.getPrincipal();
 
-@Configuration
-public class WebClientConfig {
+        // Extracting fields
+        String sesame = user.getAttribute(USER_SESAME_FIELD_IN_CLAIMS);
+        String firstName = user.getAttribute("first_name");
+        String lastName = user.getAttribute("family_name");
+        String quadrigram = user.getAttribute("name"); // assuming this is full name or ID
+        String loginEmail = user.getAttribute("login_ad");
 
-    private final ClientRegistrationRepository clientRegistrationRepository;
+        if (StringUtils.isNotEmpty(sesame)) {
+            // Optionally fetch userVac from DB using sesame
+            // UserVac userVac = userVacRepository.findUserVacBySesameCode(sesame);
 
-    public WebClientConfig(ClientRegistrationRepository clientRegistrationRepository) {
-        this.clientRegistrationRepository = clientRegistrationRepository;
-    }
-
-    @Value("${vap.incident.api.url}")
-    private String incidentUrl;
-
-    @Value("${vap.report.service.base}")
-    private String baseUrlServices;
-
-    @Bean(name = "vapReportingWebClient")
-    public WebClient vapReportingWebClient(ClientRegistrationRepository clientRegistrations) {
-        ServletOAuth2AuthorizedClientExchangeFilterFunction oauth =
-            new ServletOAuth2AuthorizedClientExchangeFilterFunction(
-                new AuthorizedClientServiceOAuth2AuthorizedClientManager(
-                    clientRegistrations, 
-                    new AuthorizedClientServiceOAuth2AuthorizedClientProvider()
-                )
+            // Temporarily, build UserDto directly with auth info
+            return new UserDto(
+                id,
+                sesame,
+                lastName,
+                firstName,
+                quadrigram,
+                new ArrayList<>(), // placeholder for userGroup
+                new ArrayList<>(), // placeholder for userModule
+                loginEmail
             );
-        oauth.setDefaultClientRegistrationId("vap");
-
-        return WebClient.builder()
-            .baseUrl(baseUrlServices)
-            .filter(oauth)
-            .build();
-    }
-
-    @Bean(name = "incidentReportingWebClient")
-    public WebClient incidentReportingWebClient(ClientRegistrationRepository clientRegistrations) {
-        ServletOAuth2AuthorizedClientExchangeFilterFunction oauth =
-            new ServletOAuth2AuthorizedClientExchangeFilterFunction(
-                new AuthorizedClientServiceOAuth2AuthorizedClientManager(
-                    clientRegistrations, 
-                    new AuthorizedClientServiceOAuth2AuthorizedClientProvider()
-                )
-            );
-        oauth.setDefaultClientRegistrationId("incident");
-
-        return WebClient.builder()
-            .baseUrl(incidentUrl)
-            .filter(oauth)
-            .build();
+        } else {
+            throw new VAPServiceException("User not available");
+        }
+    } catch (Exception e) {
+        LOGGER.error("Error Fetching user details", e);
+        throw new VAPServiceException("Error Fetching user details");
     }
 }
