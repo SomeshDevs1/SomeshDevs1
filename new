@@ -1,81 +1,73 @@
-package com.sgss.ast.fvs.vap.link.followup.entities;
+@Service
+public class UserServiceImpl implements UserService {
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+    @Autowired private UserVacRepository userVacRepository;
+    @Autowired private UserTransformer userTransformer;   // if you still need it
 
-import javax.persistence.EntityManager;
-import java.util.Date;
+    @Override
+    @Cacheable(   // keep a cache if you’re worried about DB load
+        value = "userDetails",
+        key   = "#claims['sub'].concat('-').concat(#idModule.toString())" )
+    public UserDto buildUserDtoFromToken(Map<String, Object> claims, Integer idModule) {
 
-import static org.junit.jupiter.api.Assertions.*;
+        /* 1️⃣  Map everything we DO have in the token */
+        UserDto dto = new UserDto();
+        dto.setIdModule(idModule);
+        dto.setLogin((String) claims.get("preferred_username"));
+        dto.setFirstName((String) claims.get("given_name"));
+        dto.setLastName((String) claims.get("family_name"));
+        dto.setEmail((String) claims.get("email"));
+        dto.setRoles(castList(claims.get("roles")));         // helper below
+        dto.setCountry((String) claims.get("country"));
+        dto.setDeptCode((String) claims.get("dept_code"));
+        dto.setLoginSesame((String) claims.get("sesame_id")); // legacy field
 
-@DataJpaTest
-public class AuditListenerTest {
+        /* 2️⃣  If *any* SGSS-specific fields are still null → hit the DB */
+        boolean needsVac = Stream.of(
+                dto.getBusinessAreas(),
+                dto.getCountryOrigin(),
+                dto.getUserQuadrigram(),
+                dto.getUserGroup(),
+                dto.getSelectedArea(),
+                dto.getNotAssignedToJustndTeams())
+            .allMatch(Objects::isNull);
 
-    @Autowired
-    private EntityManager entityManager;
+        if (needsVac && dto.getLoginSesame() != null) {
+            userVacRepository.findUserVacBySesameCode(dto.getLoginSesame())
+                             .ifPresent(vac -> enrichFromVac(dto, vac));
+        }
 
-    private PersistentObject persistentObject;
-
-    @BeforeEach
-    void setUp() {
-        // Create a new PersistentObject for testing
-        persistentObject = new PersistentObject();
+        return dto;
     }
 
-    @Test
-    void testBeforeCreateOperation() {
-        // Save the PersistentObject, which should trigger the @PrePersist method
-        entityManager.persistAndFlush(persistentObject);
+    /* Helper to enrich only the fields still missing */
+    private void enrichFromVac(UserDto dto, UserVac vac) {
 
-        // Retrieve the entity from the database
-        PersistentObject savedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
+        if (dto.getBusinessAreas() == null)
+            dto.setBusinessAreas(vac.getBusinessAreas());
 
-        // Assert that dateCreated and dateModified are set correctly
-        assertNotNull(savedObject);
-        assertNotNull(savedObject.getDateCreated());
-        assertNotNull(savedObject.getDateModified());
-        assertEquals(savedObject.getDateCreated(), savedObject.getDateModified(), "DateCreated and DateModified should be the same when created");
+        if (dto.getCountryOrigin() == null)
+            dto.setCountryOrigin(vac.getCountryOrigin());
+
+        if (dto.getUserQuadrigram() == null)
+            dto.setUserQuadrigram(vac.getQuadrigram());
+
+        if (dto.getUserGroup() == null)
+            dto.setUserGroup(vac.getGroup());
+
+        if (dto.getSelectedArea() == null)
+            dto.setSelectedArea(vac.getSelectedArea());
+
+        if (dto.getNotAssignedToJustndTeams() == null)
+            dto.setNotAssignedToJustndTeams(vac.getNotAssignedToJustndTeams());
+
+        // Example: Teams transformation (if you still expose them)
+        if (dto.getTeams() == null)
+            dto.setTeams(UserTransformer.transformTeams(vac.getTeamDtos()));
     }
 
-    @Test
-    void testBeforeUpdateOperation() {
-        // Save the PersistentObject first
-        entityManager.persistAndFlush(persistentObject);
-
-        // Store the initial dateModified
-        Date initialDateModified = persistentObject.getDateModified();
-
-        // Update the object (just an example update, you could modify any field)
-        persistentObject.setId(2L);
-        entityManager.persistAndFlush(persistentObject);
-
-        // Retrieve the updated entity
-        PersistentObject updatedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
-
-        // Assert that dateModified is updated (but dateCreated should remain the same)
-        assertNotNull(updatedObject);
-        assertNotEquals(initialDateModified, updatedObject.getDateModified(), "DateModified should be updated on update");
-        assertEquals(updatedObject.getDateCreated(), persistentObject.getDateCreated(), "DateCreated should not be modified on update");
-    }
-
-    @Test
-    void testBeforeRemoveOperation() {
-        // Save the PersistentObject first
-        entityManager.persistAndFlush(persistentObject);
-
-        // Store the initial dateModified
-        Date initialDateModified = persistentObject.getDateModified();
-
-        // Remove the object (this will call the @PreRemove method)
-        entityManager.remove(persistentObject);
-
-        // Retrieve the removed entity (it should be null since it was deleted)
-        PersistentObject removedObject = entityManager.find(PersistentObject.class, persistentObject.getId());
-
-        // The entity is deleted, so assert that it is null
-        assertNull(removedObject);
-        // The listener sets dateModified before removal, but since it is deleted, we can't check the exact value after removal.
+    @SuppressWarnings("unchecked")
+    private List<String> castList(Object obj) {
+        return obj instanceof List<?> ? (List<String>) obj : Collections.emptyList();
     }
 }
