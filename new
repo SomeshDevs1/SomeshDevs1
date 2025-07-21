@@ -34,6 +34,6 @@ public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes, int id
 }
 Map<String, Object> tokenAttributes = ((BearerTokenAuthentication) authentication).getTokenAttributes();
 
-tokenAttributes.forEach((k, v) -> {
-    System.out.println(k + " : " + v);
-});
+LOGGER.info("=== SGIAM Token Data Start ===");
+userDataFromSgiam.forEach((k, v) -> LOGGER.info("{} : {}", k, v));
+LOGGER.info("=== SGIAM Token Data End ===");
