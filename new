@@ -1,48 +1,34 @@
-public UserDto getUserDetails(Authentication authentication, Integer id) throws VAPServiceException {
-    try {
-        if (authentication instanceof BearerTokenAuthentication) {
-            Map<String, Object> attributes = ((BearerTokenAuthentication) authentication).getTokenAttributes();
-            return sgiamsvc.buildUserDtoFromToken(attributes);
+public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes, int idModule) {
+    UserDto userDto = new UserDto();
+
+    // Basic info
+    userDto.setLoginSesame((String) tokenAttributes.get("preferred_username"));
+    userDto.setFirstName((String) tokenAttributes.get("given_name"));
+    userDto.setName((String) tokenAttributes.get("family_name"));
+    userDto.setLoginEmail((String) tokenAttributes.get("email"));
+
+    // Parse business groups / teams from token
+    List<BusinessGroupDto> teams = extractBusinessGroups(tokenAttributes);
+
+    // Business areas
+    Set<String> businessAreas = new TreeSet<>();
+    for (BusinessGroupDto team : teams) {
+        if (team.getArea() != null) {
+            businessAreas.add(team.getArea());
         }
-        // Fallback if DefaultOAuth2AuthenticatedPrincipal
-        else if (authentication.getPrincipal() instanceof DefaultOAuth2AuthenticatedPrincipal principal) {
-            return sgiamsvc.buildUserDtoFromToken(principal.getAttributes());
-        } else {
-            throw new VAPServiceException("User not available");
-        }
-    } catch (Exception e) {
-        LOGGER.error("Error Fetching user details :", e);
-        throw new VAPServiceException("Error Fetching user details");
-    }
-}
-
-@Service
-public class SGIAMUserService {
-
-    public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes) {
-        UserDto userDto = new UserDto();
-
-        // Example mapping (adjust keys based on actual SGIAM token structure)
-        userDto.setFirstName((String) tokenAttributes.get("given_name"));
-        userDto.setName((String) tokenAttributes.get("family_name"));
-        userDto.setLoginSesame((String) tokenAttributes.get("preferred_username"));
-        userDto.setUserGroup(parseUserGroups(tokenAttributes));
-        userDto.setBusinessAreas(parseBusinessAreas(tokenAttributes));
-        userDto.setUserModule(parseUserModules(tokenAttributes));
-        // Add more fields as needed
-
-        return userDto;
     }
 
-    private List<BusinessGroupDto> parseUserGroups(Map<String, Object> attrs) {
-        // convert token claim to userGroup list
-    }
+    // Set data
+    userDto.setUserGroup(teams);
+    userDto.setBusinessAreas(businessAreas);
+    userDto.setCountry(getCountryLabelByTeam(teams.get(0).getId()));  // or extract from token if available
 
-    private List<BusinessAreaDto> parseBusinessAreas(Map<String, Object> attrs) {
-        // convert token claim to business area list
-    }
+    // Modules
+    List<ModuleDto> modules = extractUserModules(tokenAttributes, idModule);
+    userDto.setUserModule(modules);
 
-    private List<ModuleDto> parseUserModules(Map<String, Object> attrs) {
-        // convert token claim to module list
-    }
+    // Optional flags (just examples)
+    userDto.setNotAssignedToJustIndTeams(Boolean.FALSE.toString());
+
+    return userDto;
 }
