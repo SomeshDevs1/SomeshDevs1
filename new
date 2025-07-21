@@ -32,3 +32,8 @@ public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes, int id
 
     return userDto;
 }
+Map<String, Object> tokenAttributes = ((BearerTokenAuthentication) authentication).getTokenAttributes();
+
+tokenAttributes.forEach((k, v) -> {
+    System.out.println(k + " : " + v);
+});
