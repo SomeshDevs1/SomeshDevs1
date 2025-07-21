@@ -1,73 +1,48 @@
-@Service
-public class UserServiceImpl implements UserService {
-
-    @Autowired private UserVacRepository userVacRepository;
-    @Autowired private UserTransformer userTransformer;   // if you still need it
-
-    @Override
-    @Cacheable(   // keep a cache if you’re worried about DB load
-        value = "userDetails",
-        key   = "#claims['sub'].concat('-').concat(#idModule.toString())" )
-    public UserDto buildUserDtoFromToken(Map<String, Object> claims, Integer idModule) {
-
-        /* 1️⃣  Map everything we DO have in the token */
-        UserDto dto = new UserDto();
-        dto.setIdModule(idModule);
-        dto.setLogin((String) claims.get("preferred_username"));
-        dto.setFirstName((String) claims.get("given_name"));
-        dto.setLastName((String) claims.get("family_name"));
-        dto.setEmail((String) claims.get("email"));
-        dto.setRoles(castList(claims.get("roles")));         // helper below
-        dto.setCountry((String) claims.get("country"));
-        dto.setDeptCode((String) claims.get("dept_code"));
-        dto.setLoginSesame((String) claims.get("sesame_id")); // legacy field
-
-        /* 2️⃣  If *any* SGSS-specific fields are still null → hit the DB */
-        boolean needsVac = Stream.of(
-                dto.getBusinessAreas(),
-                dto.getCountryOrigin(),
-                dto.getUserQuadrigram(),
-                dto.getUserGroup(),
-                dto.getSelectedArea(),
-                dto.getNotAssignedToJustndTeams())
-            .allMatch(Objects::isNull);
-
-        if (needsVac && dto.getLoginSesame() != null) {
-            userVacRepository.findUserVacBySesameCode(dto.getLoginSesame())
-                             .ifPresent(vac -> enrichFromVac(dto, vac));
+public UserDto getUserDetails(Authentication authentication, Integer id) throws VAPServiceException {
+    try {
+        if (authentication instanceof BearerTokenAuthentication) {
+            Map<String, Object> attributes = ((BearerTokenAuthentication) authentication).getTokenAttributes();
+            return sgiamsvc.buildUserDtoFromToken(attributes);
         }
+        // Fallback if DefaultOAuth2AuthenticatedPrincipal
+        else if (authentication.getPrincipal() instanceof DefaultOAuth2AuthenticatedPrincipal principal) {
+            return sgiamsvc.buildUserDtoFromToken(principal.getAttributes());
+        } else {
+            throw new VAPServiceException("User not available");
+        }
+    } catch (Exception e) {
+        LOGGER.error("Error Fetching user details :", e);
+        throw new VAPServiceException("Error Fetching user details");
+    }
+}
 
-        return dto;
+@Service
+public class SGIAMUserService {
+
+    public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes) {
+        UserDto userDto = new UserDto();
+
+        // Example mapping (adjust keys based on actual SGIAM token structure)
+        userDto.setFirstName((String) tokenAttributes.get("given_name"));
+        userDto.setName((String) tokenAttributes.get("family_name"));
+        userDto.setLoginSesame((String) tokenAttributes.get("preferred_username"));
+        userDto.setUserGroup(parseUserGroups(tokenAttributes));
+        userDto.setBusinessAreas(parseBusinessAreas(tokenAttributes));
+        userDto.setUserModule(parseUserModules(tokenAttributes));
+        // Add more fields as needed
+
+        return userDto;
     }
 
-    /* Helper to enrich only the fields still missing */
-    private void enrichFromVac(UserDto dto, UserVac vac) {
-
-        if (dto.getBusinessAreas() == null)
-            dto.setBusinessAreas(vac.getBusinessAreas());
-
-        if (dto.getCountryOrigin() == null)
-            dto.setCountryOrigin(vac.getCountryOrigin());
-
-        if (dto.getUserQuadrigram() == null)
-            dto.setUserQuadrigram(vac.getQuadrigram());
-
-        if (dto.getUserGroup() == null)
-            dto.setUserGroup(vac.getGroup());
-
-        if (dto.getSelectedArea() == null)
-            dto.setSelectedArea(vac.getSelectedArea());
-
-        if (dto.getNotAssignedToJustndTeams() == null)
-            dto.setNotAssignedToJustndTeams(vac.getNotAssignedToJustndTeams());
-
-        // Example: Teams transformation (if you still expose them)
-        if (dto.getTeams() == null)
-            dto.setTeams(UserTransformer.transformTeams(vac.getTeamDtos()));
+    private List<BusinessGroupDto> parseUserGroups(Map<String, Object> attrs) {
+        // convert token claim to userGroup list
     }
 
-    @SuppressWarnings("unchecked")
-    private List<String> castList(Object obj) {
-        return obj instanceof List<?> ? (List<String>) obj : Collections.emptyList();
+    private List<BusinessAreaDto> parseBusinessAreas(Map<String, Object> attrs) {
+        // convert token claim to business area list
+    }
+
+    private List<ModuleDto> parseUserModules(Map<String, Object> attrs) {
+        // convert token claim to module list
     }
 }
