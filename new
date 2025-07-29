@@ -1,25 +1,37 @@
+@SuppressWarnings("unchecked")
 private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
-    return Optional.ofNullable((Map<String, Object>) tokenAttributes.get("authentication"))
-        .map(auth -> (Map<String, Object>) auth.get("attributes"))
-        .map(attributes -> (Map<String, Object>) attributes.get("user_authorization"))
-        .orElse(List.of())
-        .stream()
-        .flatMap(userAuthorization -> Optional.ofNullable((List<Map<String, Object>>) userAuthorization.get("permissions"))
-            .orElse(List.of())
-            .stream()
-            .map(permission -> Optional.ofNullable((Map<String, Object>) permission.get("constraints"))
-                .orElse(List.of())
-                .stream()
-                .map(constraint -> {
-                    ModuleDto moduleDto = new ModuleDto();
-                    moduleDto.setId(idModule);
-                    moduleDto.setModuleName((String) constraint.get("ApplicationRole"));
-                    moduleDto.setApplicationRole((String) constraint.get("User Type"));
-                    moduleDto.setBusinessRole((String) constraint.get("Business Role"));
-                    moduleDto.setModule((String) constraint.get("MODULE"));
-                    return moduleDto;
-                })
-            )
-        )
-        .collect(Collectors.toList());
+    List<ModuleDto> moduleDtos = new ArrayList<>();
+
+    try {
+        // Step 1: Get "user_authorization"
+        Map<String, Object> userAuthorization = (Map<String, Object>) tokenAttributes.get("user_authorization");
+        if (userAuthorization == null) return moduleDtos;
+
+        // Step 2: Get "permissions"
+        List<Map<String, Object>> permissions = (List<Map<String, Object>>) userAuthorization.get("permissions");
+        if (permissions == null) return moduleDtos;
+
+        // Step 3: Loop through permissions and extract "constraints"
+        for (Map<String, Object> permission : permissions) {
+            List<Map<String, Object>> constraints = (List<Map<String, Object>>) permission.get("constraints");
+            if (constraints == null) continue;
+
+            for (Map<String, Object> constraint : constraints) {
+                ModuleDto moduleDto = new ModuleDto();
+
+                moduleDto.setId(idModule);
+                moduleDto.setModuleName((String) constraint.get("ApplicationRole"));
+                moduleDto.setApplicationRole((String) constraint.get("User Type"));
+                moduleDto.setBusinessRole((String) constraint.get("Business Role"));
+                moduleDto.setModule((String) constraint.get("MODULE"));
+
+                moduleDtos.add(moduleDto);
+            }
+        }
+
+    } catch (Exception e) {
+        log.error("Error extracting modules from tokenAttributes", e);
+    }
+
+    return moduleDtos;
 }
