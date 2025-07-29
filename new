@@ -3,39 +3,53 @@ private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, 
     List<ModuleDto> moduleDtos = new ArrayList<>();
 
     try {
-        // Step 1: Navigate into authentication ➝ attributes ➝ user_authorization
-        Map<String, Object> authentication = (Map<String, Object>) tokenAttributes.get("authentication");
-        if (authentication == null) return moduleDtos;
-
-        Map<String, Object> attributes = (Map<String, Object>) authentication.get("attributes");
-        if (attributes == null) return moduleDtos;
-
-        Map<String, Object> userAuthorization = (Map<String, Object>) attributes.get("user_authorization");
+        Map<String, Object> userAuthorization = (Map<String, Object>) tokenAttributes.get("user_authorization");
         if (userAuthorization == null) return moduleDtos;
 
-        // Step 2: Extract permissions
-        List<Map<String, Object>> permissions = (List<Map<String, Object>>) userAuthorization.get("permissions");
-        if (permissions == null) return moduleDtos;
+        for (Object authValue : userAuthorization.values()) {
+            Map<String, Object> permissionContainer = (Map<String, Object>) authValue;
+            Map<String, Object> permissions = (Map<String, Object>) permissionContainer.get("permissions");
+            if (permissions == null) continue;
 
-        for (Map<String, Object> permission : permissions) {
-            // Step 3: Extract constraints
-            List<Map<String, Object>> constraints = (List<Map<String, Object>>) permission.get("constraints");
-            if (constraints == null) continue;
+            for (Object permValue : permissions.values()) {
+                Map<String, Object> permission = (Map<String, Object>) permValue;
+                Map<String, Object> constraints = (Map<String, Object>) permission.get("constraints");
+                if (constraints == null) continue;
 
-            for (Map<String, Object> constraint : constraints) {
                 ModuleDto moduleDto = new ModuleDto();
                 moduleDto.setId(idModule);
-                moduleDto.setModuleName((String) constraint.get("ApplicationRole"));
-                moduleDto.setApplicationRole((String) constraint.get("User Type"));
-                moduleDto.setBusinessRole((String) constraint.get("Business Role"));
-                moduleDto.setModule((String) constraint.get("MODULE"));
+
+                for (Object constraintObj : constraints.values()) {
+                    Map<String, Object> constraint = (Map<String, Object>) constraintObj;
+
+                    // Extract name.name
+                    Map<String, Object> nameMap = (Map<String, Object>) constraint.get("name");
+                    String nameKey = nameMap != null ? (String) nameMap.get("name") : null;
+
+                    // Extract values. Expecting { "0": "SomeValue" }
+                    Map<String, Object> valuesMap = (Map<String, Object>) constraint.get("values");
+                    String value = null;
+                    if (valuesMap != null && valuesMap.containsKey("0")) {
+                        value = (String) valuesMap.get("0");
+                    }
+
+                    if ("User Type".equalsIgnoreCase(nameKey)) {
+                        moduleDto.setApplicationRole(value); // or setUserType(value)
+                    } else if ("Business Role".equalsIgnoreCase(nameKey)) {
+                        moduleDto.setBusinessRole(value);
+                    } else if ("MODULE".equalsIgnoreCase(nameKey)) {
+                        moduleDto.setModule(value);
+                    } else if ("ApplicationRole".equalsIgnoreCase(nameKey)) {
+                        moduleDto.setModuleName(value);
+                    }
+                }
 
                 moduleDtos.add(moduleDto);
             }
         }
 
     } catch (Exception e) {
-        log.error("Error extracting user modules from token", e);
+        log.error("Error extracting deeply nested constraint values from token", e);
     }
 
     return moduleDtos;
