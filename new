@@ -1,39 +1,25 @@
-public UserDto buildUserDtoFromToken(Map<String, Object> tokenAttributes, int idModule) {
-    UserDto userDto = new UserDto();
-
-    // Basic info
-    userDto.setLoginSesame((String) tokenAttributes.get("preferred_username"));
-    userDto.setFirstName((String) tokenAttributes.get("given_name"));
-    userDto.setName((String) tokenAttributes.get("family_name"));
-    userDto.setLoginEmail((String) tokenAttributes.get("email"));
-
-    // Parse business groups / teams from token
-    List<BusinessGroupDto> teams = extractBusinessGroups(tokenAttributes);
-
-    // Business areas
-    Set<String> businessAreas = new TreeSet<>();
-    for (BusinessGroupDto team : teams) {
-        if (team.getArea() != null) {
-            businessAreas.add(team.getArea());
-        }
-    }
-
-    // Set data
-    userDto.setUserGroup(teams);
-    userDto.setBusinessAreas(businessAreas);
-    userDto.setCountry(getCountryLabelByTeam(teams.get(0).getId()));  // or extract from token if available
-
-    // Modules
-    List<ModuleDto> modules = extractUserModules(tokenAttributes, idModule);
-    userDto.setUserModule(modules);
-
-    // Optional flags (just examples)
-    userDto.setNotAssignedToJustIndTeams(Boolean.FALSE.toString());
-
-    return userDto;
+private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
+    return Optional.ofNullable((Map<String, Object>) tokenAttributes.get("authentication"))
+        .map(auth -> (Map<String, Object>) auth.get("attributes"))
+        .map(attributes -> (Map<String, Object>) attributes.get("user_authorization"))
+        .orElse(List.of())
+        .stream()
+        .flatMap(userAuthorization -> Optional.ofNullable((List<Map<String, Object>>) userAuthorization.get("permissions"))
+            .orElse(List.of())
+            .stream()
+            .map(permission -> Optional.ofNullable((Map<String, Object>) permission.get("constraints"))
+                .orElse(List.of())
+                .stream()
+                .map(constraint -> {
+                    ModuleDto moduleDto = new ModuleDto();
+                    moduleDto.setId(idModule);
+                    moduleDto.setModuleName((String) constraint.get("ApplicationRole"));
+                    moduleDto.setApplicationRole((String) constraint.get("User Type"));
+                    moduleDto.setBusinessRole((String) constraint.get("Business Role"));
+                    moduleDto.setModule((String) constraint.get("MODULE"));
+                    return moduleDto;
+                })
+            )
+        )
+        .collect(Collectors.toList());
 }
-Map<String, Object> tokenAttributes = ((BearerTokenAuthentication) authentication).getTokenAttributes();
-
-LOGGER.info("=== SGIAM Token Data Start ===");
-userDataFromSgiam.forEach((k, v) -> LOGGER.info("{} : {}", k, v));
-LOGGER.info("=== SGIAM Token Data End ===");
