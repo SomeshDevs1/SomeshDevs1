@@ -1,45 +1,53 @@
-// Prepare the KPI Report Status Table with the new Country column
-msgBody.append("<h4>KPI Report Status</h4>")
-       .append("<table cellpadding='10' style='background-color: #ffffff; border: 1px solid #000000;'>")
-       .append("<tr style='background-color: #cccccc;'>")
-       .append("<th>File Name</th><th>Country</th><th>Status</th><th>Time Created</th><th>Time Completed</th></tr>");
+@SuppressWarnings("unchecked")
+private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
+    List<ModuleDto> moduleDtos = new ArrayList<>();
 
-// Boolean to track the overall status of KPI reports
-boolean allKpiJobsCompleted = true;
+    try {
+        // Step 1: Get user_authorization (as a List)
+        List<Map<String, Object>> userAuthorizationList =
+            (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
 
-// Process each KPI report to populate the table and determine the country
-for (BatchReportStatus report : kpiReports) {
-    String fileName = report.getFileName();
-    String country = "";
+        if (userAuthorizationList == null) return moduleDtos;
 
-    // Determine country based on file name contents
-    if (fileName.contains("FRA")) {
-        country = "FRANCE";
-    } else if (fileName.contains("DUBLIN")) {
-        country = "IRELAND";
-    } else if (fileName.contains("ITA")) {
-        country = "ITALY";
-    } else if (fileName.contains("LUX")) {
-        country = "LUXEMBOURG";
-    } else {
-        country = "UNKNOWN"; // Default if no match is found
+        for (Map<String, Object> authEntry : userAuthorizationList) {
+            List<Map<String, Object>> permissions =
+                (List<Map<String, Object>>) authEntry.get("permissions");
+
+            if (permissions == null) continue;
+
+            for (Map<String, Object> permission : permissions) {
+                List<Map<String, Object>> constraints =
+                    (List<Map<String, Object>>) permission.get("constraints");
+
+                if (constraints == null) continue;
+
+                ModuleDto moduleDto = new ModuleDto();
+                moduleDto.setId(idModule);
+
+                for (Map<String, Object> constraint : constraints) {
+                    String name = (String) constraint.get("name");
+                    List<String> values = (List<String>) constraint.get("values");
+
+                    if (name == null || values == null || values.isEmpty()) continue;
+
+                    String value = values.get(0); // Take the first value
+
+                    switch (name) {
+                        case "User Type" -> moduleDto.setApplicationRole(value);
+                        case "Business Role" -> moduleDto.setBusinessRole(value);
+                        case "MODULE" -> moduleDto.setModule(value);
+                        case "ApplicationRole" -> moduleDto.setModuleName(value);
+                        // You can add more if needed
+                    }
+                }
+
+                moduleDtos.add(moduleDto);
+            }
+        }
+
+    } catch (Exception e) {
+        log.error("Error extracting ModuleDto from SGIAM token", e);
     }
 
-    msgBody.append("<tr>")
-           .append("<td>").append(fileName).append("</td>")
-           .append("<td>").append(country).append("</td>")
-           .append("<td>").append(report.getStatus()).append("</td>")
-           .append("<td>").append(report.getTimeCreated()).append("</td>")
-           .append("<td>").append(report.getTimeCompleted()).append("</td>")
-           .append("</tr>");
-
-    // Check if each KPI report is completed; if not, update the completion status
-    if (!"COMPLETED".equals(report.getStatus())) {
-        allKpiJobsCompleted = false;
-    }
+    return moduleDtos;
 }
-msgBody.append("</table><br>");
-
-// Determine KPI Report Table Status based on job completion
-String kpiReportStatus = allKpiJobsCompleted ? "OK" : "KO";
-msgBody.append("<strong>KPI Report Table Status: ").append(kpiReportStatus).append("</strong><br><br>");
