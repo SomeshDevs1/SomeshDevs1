@@ -1,55 +1,54 @@
 private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
     List<ModuleDto> moduleDtos = new ArrayList<>();
 
-    List<Map<String, Object>> userAuthorizationList =
+    try {
+        List<Map<String, Object>> userAuthorizationList =
             (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
 
-    if (userAuthorizationList == null) return moduleDtos;
+        if (userAuthorizationList == null) return moduleDtos;
 
-    for (Map<String, Object> authEntry : userAuthorizationList) {
-        List<Map<String, Object>> permissions =
-                (List<Map<String, Object>>) authEntry.get("permissions");
-
-        if (permissions == null) continue;
-
-        for (Map<String, Object> permission : permissions) {
-            List<Map<String, Object>> constraints =
-                    (List<Map<String, Object>>) permission.get("constraints");
-
-            if (constraints == null) continue;
-
-            String userType = null;
-            String businessRole = null;
-            String applicationRole = null;
-            List<String> moduleNames = new ArrayList<>();
-
-            // First loop to extract all constraint values before creating ModuleDto
-            for (Map<String, Object> constraint : constraints) {
-                String name = (String) constraint.get("name");
-                List<String> values = (List<String>) constraint.get("values");
-
-                if (name == null || values == null || values.isEmpty()) continue;
-
-                switch (name) {
-                    case "User Type" -> userType = values.get(0);
-                    case "Business Role" -> businessRole = values.get(0);
-                    case "ApplicationRole" -> applicationRole = values.get(0);
-                    case "MODULE" -> moduleNames.addAll(values); // Get all modules
-                }
-            }
-
-            // Now create a ModuleDto per module name
-            for (String moduleName : moduleNames) {
+        userAuthorizationList.stream()
+            .map(authEntry -> (List<Map<String, Object>>) authEntry.get("permissions"))
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .map(permission -> (List<Map<String, Object>>) permission.get("constraints"))
+            .filter(Objects::nonNull)
+            .forEach(constraints -> {
                 ModuleDto moduleDto = new ModuleDto();
-                moduleDto.setId(String.valueOf(idModule)); // or set a new id each time if needed
-                moduleDto.setUserType(userType);
-                moduleDto.setBusinessRole(businessRole);
-                moduleDto.setApplicationRole(applicationRole);
-                moduleDto.setModuleName(moduleName);
+                moduleDto.setId(String.valueOf(idModule));
+
+                constraints.stream()
+                    .filter(constraint -> constraint.get("name") != null && constraint.get("values") != null)
+                    .forEach(constraint -> {
+                        String name = (String) constraint.get("name");
+                        List<String> values = (List<String>) constraint.get("values");
+
+                        if (values.isEmpty()) return;
+
+                        String value = values.get(0); // Take the first value
+
+                        switch (name) {
+                            case "User Type":
+                                moduleDto.setUserType(value);
+                                break;
+                            case "Business Role":
+                                moduleDto.setBusinessRole(value);
+                                break;
+                            case "MODULE":
+                                moduleDto.setModuleName(value);
+                                break;
+                            case "ApplicationRole":
+                                moduleDto.setApplicationRole(value);
+                                break;
+                            // Add more cases if needed
+                        }
+                    });
 
                 moduleDtos.add(moduleDto);
-            }
-        }
+            });
+
+    } catch (Exception e) {
+        System.err.println("Error extracting user modules: " + e.getMessage());
     }
 
     return moduleDtos;
