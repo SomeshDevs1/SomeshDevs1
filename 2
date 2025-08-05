@@ -1,39 +1,54 @@
-for (Map<String, Object> authEntry : userAuthorizationList) {
-    List<Map<String, Object>> permissions = (List<Map<String, Object>>) authEntry.get("permissions");
+private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
+    List<ModuleDto> moduleDtos = new ArrayList<>();
 
-    if (permissions == null) continue;
+    List<Map<String, Object>> userAuthorizationList =
+            (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
 
-    for (Map<String, Object> permission : permissions) {
-        List<Map<String, Object>> constraints = (List<Map<String, Object>>) permission.get("constraints");
-        if (constraints == null) continue;
+    if (userAuthorizationList == null) return moduleDtos;
 
-        String applicationRole = null;
-        String businessRole = null;
-        String userType = null;
-        List<String> moduleNames = new ArrayList<>();
+    for (Map<String, Object> authEntry : userAuthorizationList) {
+        List<Map<String, Object>> permissions =
+                (List<Map<String, Object>>) authEntry.get("permissions");
 
-        for (Map<String, Object> constraint : constraints) {
-            String name = (String) constraint.get("name");
-            List<String> values = (List<String>) constraint.get("values");
+        if (permissions == null) continue;
 
-            if (name == null || values == null || values.isEmpty()) continue;
+        for (Map<String, Object> permission : permissions) {
+            List<Map<String, Object>> constraints =
+                    (List<Map<String, Object>>) permission.get("constraints");
 
-            switch (name) {
-                case "ApplicationRole" -> applicationRole = values.get(0);
-                case "Business Role"   -> businessRole = values.get(0);
-                case "User Type"       -> userType = values.get(0);
-                case "MODULE"          -> moduleNames.addAll(values); // Might have multiple module names
+            if (constraints == null) continue;
+
+            String userType = null;
+            String businessRole = null;
+            String applicationRole = null;
+            List<String> moduleNames = new ArrayList<>();
+
+            for (Map<String, Object> constraint : constraints) {
+                String name = (String) constraint.get("name");
+                List<String> values = (List<String>) constraint.get("values");
+
+                if (name == null || values == null || values.isEmpty()) continue;
+
+                switch (name) {
+                    case "User Type" -> userType = values.get(0);
+                    case "Business Role" -> businessRole = values.get(0);
+                    case "ApplicationRole" -> applicationRole = values.get(0);
+                    case "MODULE" -> moduleNames.addAll(values); // Take all values
+                }
+            }
+
+            // Now create one ModuleDto per module name
+            for (String moduleName : moduleNames) {
+                ModuleDto moduleDto = new ModuleDto();
+                moduleDto.setId(String.valueOf(idModule)); // You said idModule will change outside
+                moduleDto.setModuleName(moduleName);
+                moduleDto.setApplicationRole(applicationRole);
+                moduleDto.setBusinessRole(businessRole);
+                moduleDto.setUserType(userType);
+                moduleDtos.add(moduleDto);
             }
         }
-
-        for (String moduleName : moduleNames) {
-            ModuleDto moduleDto = new ModuleDto();
-            moduleDto.setId(String.valueOf(idModule));
-            moduleDto.setModuleName(moduleName);
-            moduleDto.setApplicationRole(applicationRole);
-            moduleDto.setBusinessRole(businessRole);
-            moduleDto.setUserType(userType);
-            moduleDtos.add(moduleDto);
-        }
     }
+
+    return moduleDtos;
 }
