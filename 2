@@ -1,6 +1,7 @@
 private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
     List<ModuleDto> moduleDtos = new ArrayList<>();
 
+    // Step 1: Get user_authorization (as a List)
     List<Map<String, Object>> userAuthorizationList =
             (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
 
@@ -33,18 +34,19 @@ private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, 
                     case "User Type" -> userType = values.get(0);
                     case "Business Role" -> businessRole = values.get(0);
                     case "ApplicationRole" -> applicationRole = values.get(0);
-                    case "MODULE" -> moduleNames.addAll(values); // Take all values
+                    case "MODULE" -> moduleNames.addAll(values); // collect all modules
                 }
             }
 
-            // Now create one ModuleDto per module name
+            // Create a ModuleDto for each module name
             for (String moduleName : moduleNames) {
                 ModuleDto moduleDto = new ModuleDto();
-                moduleDto.setId(String.valueOf(idModule)); // You said idModule will change outside
+                moduleDto.setId(String.valueOf(idModule));  // or a counter if unique IDs needed
                 moduleDto.setModuleName(moduleName);
-                moduleDto.setApplicationRole(applicationRole);
-                moduleDto.setBusinessRole(businessRole);
                 moduleDto.setUserType(userType);
+                moduleDto.setBusinessRole(businessRole);
+                moduleDto.setApplicationRole(applicationRole);
+
                 moduleDtos.add(moduleDto);
             }
         }
