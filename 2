@@ -1,20 +1,39 @@
-for (Map<String, Object> constraint : constraints) {
-    String name = (String) constraint.get("name");
-    List<String> values = (List<String>) constraint.get("values");
+for (Map<String, Object> authEntry : userAuthorizationList) {
+    List<Map<String, Object>> permissions = (List<Map<String, Object>>) authEntry.get("permissions");
 
-    if (name == null || values == null || values.isEmpty()) continue;
+    if (permissions == null) continue;
 
-    for (String value : values) {
-        ModuleDto moduleDto = new ModuleDto();
-        moduleDto.setId(String.valueOf(idModule));
+    for (Map<String, Object> permission : permissions) {
+        List<Map<String, Object>> constraints = (List<Map<String, Object>>) permission.get("constraints");
+        if (constraints == null) continue;
 
-        switch (name) {
-            case "User Type" -> moduleDto.setUserType(value);
-            case "Business Role" -> moduleDto.setBusinessRole(value);
-            case "MODULE" -> moduleDto.setModuleName(value);
-            case "ApplicationRole" -> moduleDto.setApplicationRole(value);
+        String applicationRole = null;
+        String businessRole = null;
+        String userType = null;
+        List<String> moduleNames = new ArrayList<>();
+
+        for (Map<String, Object> constraint : constraints) {
+            String name = (String) constraint.get("name");
+            List<String> values = (List<String>) constraint.get("values");
+
+            if (name == null || values == null || values.isEmpty()) continue;
+
+            switch (name) {
+                case "ApplicationRole" -> applicationRole = values.get(0);
+                case "Business Role"   -> businessRole = values.get(0);
+                case "User Type"       -> userType = values.get(0);
+                case "MODULE"          -> moduleNames.addAll(values); // Might have multiple module names
+            }
         }
 
-        moduleDtos.add(moduleDto); // ✅ Add one DTO per value
+        for (String moduleName : moduleNames) {
+            ModuleDto moduleDto = new ModuleDto();
+            moduleDto.setId(String.valueOf(idModule));
+            moduleDto.setModuleName(moduleName);
+            moduleDto.setApplicationRole(applicationRole);
+            moduleDto.setBusinessRole(businessRole);
+            moduleDto.setUserType(userType);
+            moduleDtos.add(moduleDto);
+        }
     }
 }
