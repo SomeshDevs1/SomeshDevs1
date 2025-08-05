@@ -1,13 +1,20 @@
-for (Map.Entry<String, List<Object>> entry : reportDatas.entrySet()) {
-    String reportName = entry.getKey();
-    List<Object> reportData = entry.getValue();
+for (Map<String, Object> constraint : constraints) {
+    String name = (String) constraint.get("name");
+    List<String> values = (List<String>) constraint.get("values");
 
-    JasperDesign jdReport = JRXmlLoader.load(reportDirectory + reportName + TYPE_JRXML);
-    compileReport(reportName, jdReport);
+    if (name == null || values == null || values.isEmpty()) continue;
 
-    try {
-        currentReport = reportParamRepository.findByJrxmlName(reportName);
-    } catch (Exception ex) {
-        logger.info("Exception occurred during setUpReports for {}: {}", reportName, ex.getMessage(), ex);
+    for (String value : values) {
+        ModuleDto moduleDto = new ModuleDto();
+        moduleDto.setId(String.valueOf(idModule));
+
+        switch (name) {
+            case "User Type" -> moduleDto.setUserType(value);
+            case "Business Role" -> moduleDto.setBusinessRole(value);
+            case "MODULE" -> moduleDto.setModuleName(value);
+            case "ApplicationRole" -> moduleDto.setApplicationRole(value);
+        }
+
+        moduleDtos.add(moduleDto); // ✅ Add one DTO per value
     }
 }
