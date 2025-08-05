@@ -1,7 +1,6 @@
 private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
     List<ModuleDto> moduleDtos = new ArrayList<>();
 
-    // Step 1: Get user_authorization (as a List)
     List<Map<String, Object>> userAuthorizationList =
             (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
 
@@ -24,6 +23,7 @@ private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, 
             String applicationRole = null;
             List<String> moduleNames = new ArrayList<>();
 
+            // First loop to extract all constraint values before creating ModuleDto
             for (Map<String, Object> constraint : constraints) {
                 String name = (String) constraint.get("name");
                 List<String> values = (List<String>) constraint.get("values");
@@ -34,18 +34,18 @@ private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, 
                     case "User Type" -> userType = values.get(0);
                     case "Business Role" -> businessRole = values.get(0);
                     case "ApplicationRole" -> applicationRole = values.get(0);
-                    case "MODULE" -> moduleNames.addAll(values); // collect all modules
+                    case "MODULE" -> moduleNames.addAll(values); // Get all modules
                 }
             }
 
-            // Create a ModuleDto for each module name
+            // Now create a ModuleDto per module name
             for (String moduleName : moduleNames) {
                 ModuleDto moduleDto = new ModuleDto();
-                moduleDto.setId(String.valueOf(idModule));  // or a counter if unique IDs needed
-                moduleDto.setModuleName(moduleName);
+                moduleDto.setId(String.valueOf(idModule)); // or set a new id each time if needed
                 moduleDto.setUserType(userType);
                 moduleDto.setBusinessRole(businessRole);
                 moduleDto.setApplicationRole(applicationRole);
+                moduleDto.setModuleName(moduleName);
 
                 moduleDtos.add(moduleDto);
             }
