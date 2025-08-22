@@ -1,55 +1,65 @@
-private List<ModuleDto> extractUserModules(Map<String, Object> tokenAttributes, int idModule) {
-    List<ModuleDto> moduleDtos = new ArrayList<>();
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
-    try {
-        List<Map<String, Object>> userAuthorizationList =
-            (List<Map<String, Object>>) tokenAttributes.get("user_authorization");
+import java.util.List;
 
-        if (userAuthorizationList == null) return moduleDtos;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClient.RequestBodySpec;
+import org.springframework.web.reactive.function.client.WebClient.RequestBodyUriSpec;
+import org.springframework.web.reactive.function.client.WebClient.RequestHeadersSpec;
+import org.springframework.web.reactive.function.client.WebClient.ResponseSpec;
+import reactor.core.publisher.Mono;
 
-        userAuthorizationList.stream()
-            .map(authEntry -> (List<Map<String, Object>>) authEntry.get("permissions"))
-            .filter(Objects::nonNull)
-            .flatMap(List::stream)
-            .map(permission -> (List<Map<String, Object>>) permission.get("constraints"))
-            .filter(Objects::nonNull)
-            .forEach(constraints -> {
-                ModuleDto moduleDto = new ModuleDto();
-                moduleDto.setId(String.valueOf(idModule));
+class JpaCallReportRestServiceDaoImplTest {
 
-                constraints.stream()
-                    .filter(constraint -> constraint.get("name") != null && constraint.get("values") != null)
-                    .forEach(constraint -> {
-                        String name = (String) constraint.get("name");
-                        List<String> values = (List<String>) constraint.get("values");
+    @Mock
+    private WebClient webClient;
 
-                        if (values.isEmpty()) return;
+    @Mock
+    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
 
-                        String value = values.get(0); // Take the first value
+    @Mock
+    private WebClient.RequestBodySpec requestBodySpec;
 
-                        switch (name) {
-                            case "User Type":
-                                moduleDto.setUserType(value);
-                                break;
-                            case "Business Role":
-                                moduleDto.setBusinessRole(value);
-                                break;
-                            case "MODULE":
-                                moduleDto.setModuleName(value);
-                                break;
-                            case "ApplicationRole":
-                                moduleDto.setApplicationRole(value);
-                                break;
-                            // Add more cases if needed
-                        }
-                    });
+    @Mock
+    private WebClient.RequestHeadersSpec<?> requestHeadersSpec;
 
-                moduleDtos.add(moduleDto);
-            });
+    @Mock
+    private WebClient.ResponseSpec responseSpec;
 
-    } catch (Exception e) {
-        System.err.println("Error extracting user modules: " + e.getMessage());
+    @InjectMocks
+    private JpaCallReportRestServiceDaoImpl serviceDao;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
     }
 
-    return moduleDtos;
+    @Test
+    void testConsumeReportApi() {
+        // Arrange
+        List<ReportDataDto> requestData = List.of(new ReportDataDto());
+        String expectedResponse = "success";
+
+        // Mock WebClient chain
+        when(webClient.post()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri(any(String.class))).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(any(), any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(expectedResponse));
+
+        // Act
+        String actualResponse = serviceDao.consumeReportApi(requestData);
+
+        // Assert
+        assert actualResponse.equals(expectedResponse);
+        verify(webClient).post();
+    }
 }
