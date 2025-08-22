@@ -1,67 +1,60 @@
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.util.Collections;
-import java.util.List;
+import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import org.springframework.batch.core.*;
+import org.springframework.batch.core.launch.JobLauncher;
 
-class JpaCallReportRestServiceDaoImplTest {
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    @Mock
-    private WebClient webClient;
+class JpaIncidentServiceDaoImplTest {
 
     @Mock
-    private WebClient.RequestBodyUriSpec requestBodyUriSpec;
+    private Job jobIncident;
 
     @Mock
-    private WebClient.RequestBodySpec requestBodySpec;
+    private JobLauncher jobLauncher;
 
     @Mock
-    private WebClient.RequestHeadersSpec<?> requestHeadersSpec;
-
-    @Mock
-    private WebClient.ResponseSpec responseSpec;
+    private JobExecution jobExecution;
 
     @InjectMocks
-    private JpaCallReportRestServiceDaoImpl serviceDao;
+    private JpaIncidentServiceDaoImpl serviceDao;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        // also inject baseurlServices so it's not null
-        serviceDao.baseurlServices = "http://dummy-url";
     }
 
     @Test
-    void testConsumeReportApi() {
+    void testCheckAndCreateIncidentForFailedJobs_Success() throws Exception {
         // Arrange
-        List<ReportDataDto> reportDataList = Collections.singletonList(new ReportDataDto());
-        String mockResponse = "mockResponse";
-
-        when(webClient.post()).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.uri(any(String.class))).thenReturn(requestBodySpec);
-        when(requestBodySpec.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)).thenReturn(requestBodySpec);
-
-        // 👇 FIX: return a RequestHeadersSpec
-        when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
-
-        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
+        ExitStatus expectedExitStatus = ExitStatus.COMPLETED;
+        when(jobLauncher.run(any(Job.class), any(JobParameters.class))).thenReturn(jobExecution);
+        when(jobExecution.getExitStatus()).thenReturn(expectedExitStatus);
 
         // Act
-        String response = serviceDao.consumeReportApi(reportDataList);
+        String result = serviceDao.checkAndCreateIncidentForFailedJobs();
 
         // Assert
-        assertEquals(mockResponse, response);
+        assertEquals(expectedExitStatus.getExitCode(), result);
+    }
+
+    @Test
+    void testCheckAndCreateIncidentForFailedJobs_Exception() throws Exception {
+        // Arrange
+        when(jobLauncher.run(any(Job.class), any(JobParameters.class)))
+                .thenThrow(new JobExecutionAlreadyRunningException("Job already running"));
+
+        // Act
+        String result = serviceDao.checkAndCreateIncidentForFailedJobs();
+
+        // Assert (should return UNKNOWN because of exception)
+        assertEquals(ExitStatus.UNKNOWN.getExitCode(), result);
     }
 }
