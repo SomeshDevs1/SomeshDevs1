@@ -1,7 +1,8 @@
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -9,11 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClient.RequestBodySpec;
-import org.springframework.web.reactive.function.client.WebClient.RequestBodyUriSpec;
-import org.springframework.web.reactive.function.client.WebClient.RequestHeadersSpec;
-import org.springframework.web.reactive.function.client.WebClient.ResponseSpec;
 import reactor.core.publisher.Mono;
 
 class JpaCallReportRestServiceDaoImplTest {
@@ -39,27 +38,30 @@ class JpaCallReportRestServiceDaoImplTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        // also inject baseurlServices so it's not null
+        serviceDao.baseurlServices = "http://dummy-url";
     }
 
     @Test
     void testConsumeReportApi() {
         // Arrange
-        List<ReportDataDto> requestData = List.of(new ReportDataDto());
-        String expectedResponse = "success";
+        List<ReportDataDto> reportDataList = Collections.singletonList(new ReportDataDto());
+        String mockResponse = "mockResponse";
 
-        // Mock WebClient chain
         when(webClient.post()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(any(String.class))).thenReturn(requestBodySpec);
-        when(requestBodySpec.header(any(), any())).thenReturn(requestBodySpec);
+        when(requestBodySpec.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)).thenReturn(requestBodySpec);
+
+        // 👇 FIX: return a RequestHeadersSpec
         when(requestBodySpec.bodyValue(any())).thenReturn(requestHeadersSpec);
+
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(expectedResponse));
+        when(responseSpec.bodyToMono(String.class)).thenReturn(Mono.just(mockResponse));
 
         // Act
-        String actualResponse = serviceDao.consumeReportApi(requestData);
+        String response = serviceDao.consumeReportApi(reportDataList);
 
         // Assert
-        assert actualResponse.equals(expectedResponse);
-        verify(webClient).post();
+        assertEquals(mockResponse, response);
     }
 }
